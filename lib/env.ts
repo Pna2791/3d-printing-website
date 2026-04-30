@@ -15,6 +15,33 @@ const MISSING_PUBLIC_SUPABASE =
   "and as `web.environment` (for `next start` / SSR), then rebuild the image after any change.";
 
 /** Returns null if either value is missing or whitespace-only. */
+export type ServiceRoleSupabaseConfig = PublicSupabaseConfig & {
+  serviceRoleKey: string;
+};
+
+/** Server-only: requires SUPABASE_SERVICE_ROLE_KEY plus public Supabase URL. */
+export function getServiceRoleSupabaseConfig(): ServiceRoleSupabaseConfig | null {
+  const pub = getPublicSupabaseConfig();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+  if (!pub || !serviceRoleKey) {
+    return null;
+  }
+  return { ...pub, serviceRoleKey };
+}
+
+/**
+ * Salt for IP hashing (middleware). Prefer a long random string in production.
+ * Empty string is allowed but reduces collision resistance versus salted hashing.
+ */
+export function getAnalyticsIpSalt(): string {
+  return process.env.ANALYTICS_IP_SALT?.trim() ?? "";
+}
+
+/** Server-only admin login secret for `/admin/*` access. */
+export function getAdminAnalyticsSecret(): string {
+  return process.env.ADMIN_ANALYTICS_SECRET?.trim() ?? "";
+}
+
 export function getPublicSupabaseConfig(): PublicSupabaseConfig | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? "";

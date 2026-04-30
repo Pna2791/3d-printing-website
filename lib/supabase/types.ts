@@ -122,6 +122,33 @@ export type Database = {
         };
         Relationships: [];
       };
+      page_views: {
+        Row: {
+          id: string;
+          url: string;
+          referrer: string | null;
+          user_agent: string | null;
+          ip_hash: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          url: string;
+          referrer?: string | null;
+          user_agent?: string | null;
+          ip_hash: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          url?: string;
+          referrer?: string | null;
+          user_agent?: string | null;
+          ip_hash?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       orders: {
         Row: {
           id: string;
@@ -169,7 +196,20 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      analytics_page_views_by_hour: {
+        Args: { p_since: string };
+        Returns: { bucket: string; view_count: number }[];
+      };
+      analytics_page_views_by_day: {
+        Args: { p_since: string };
+        Returns: { bucket: string; view_count: number }[];
+      };
+      analytics_top_urls: {
+        Args: { p_since: string; p_limit?: number };
+        Returns: { url: string; view_count: number }[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

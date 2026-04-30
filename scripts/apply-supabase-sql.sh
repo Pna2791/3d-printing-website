@@ -24,23 +24,26 @@ if [ -z "${DATABASE_URL:-}" ]; then
   exit 1
 fi
 
-echo "==> 1/6 migrations/20250430120000_initial_schema.sql"
+echo "==> 1/7 migrations/20250430120000_initial_schema.sql"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$ROOT/supabase/migrations/20250430120000_initial_schema.sql"
 
-echo "==> 2/6 migrations/20250430130000_realtime_printers.sql"
+echo "==> 2/7 migrations/20250430130000_realtime_printers.sql"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$ROOT/supabase/migrations/20250430130000_realtime_printers.sql"
 
-echo "==> 3/6 migrations/20250430140000_orders_mvp_columns.sql"
+echo "==> 3/7 migrations/20250430140000_orders_mvp_columns.sql"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$ROOT/supabase/migrations/20250430140000_orders_mvp_columns.sql"
 
-echo "==> 4/6 migrations/20250430150000_public_readonly_rls.sql"
+echo "==> 4/7 migrations/20250430150000_public_readonly_rls.sql"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$ROOT/supabase/migrations/20250430150000_public_readonly_rls.sql"
 
-echo "==> 5/6 migrations/20260430152000_update_material_pricing_vnd.sql"
+echo "==> 5/7 migrations/20260430152000_update_material_pricing_vnd.sql"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$ROOT/supabase/migrations/20260430152000_update_material_pricing_vnd.sql"
 
-echo "==> 6/6 seed.sql"
+echo "==> 6/7 migrations/20260501120000_analytics_schema.sql"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$ROOT/supabase/migrations/20260501120000_analytics_schema.sql"
+
+echo "==> 7/7 seed.sql"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$ROOT/supabase/seed.sql"
 
-echo "OK — schema, realtime, orders MVP, read-only RLS, pricing update, and seed applied."
+echo "OK — schema, realtime, orders MVP, read-only RLS, pricing, analytics, and seed applied."
 
