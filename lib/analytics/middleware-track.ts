@@ -10,6 +10,31 @@ const MAX_URL_LEN = 4000;
 const MAX_AGENT_LEN = 500;
 const MAX_REF_LEN = 2000;
 
+function normalizeHost(rawHost: string | null): string {
+  if (!rawHost) return "";
+  return rawHost.trim().toLowerCase().replace(/:\d+$/, "");
+}
+
+function isAnalyticsEnvironmentAllowed(request: NextRequest): boolean {
+  if (process.env.NODE_ENV !== "production") return false;
+
+  const host = normalizeHost(request.headers.get("host"));
+  if (!host) return false;
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false;
+
+  // Optional domain allow-list: comma-separated hosts (e.g. "yourdomain.com,www.yourdomain.com").
+  const allowedHostsRaw = process.env.ANALYTICS_ALLOWED_HOSTS?.trim() ?? "";
+  if (!allowedHostsRaw) return true;
+
+  const allowedHosts = allowedHostsRaw
+    .split(",")
+    .map((v) => normalizeHost(v))
+    .filter(Boolean);
+
+  if (allowedHosts.length === 0) return true;
+  return allowedHosts.includes(host);
+}
+
 function clientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
   if (forwarded) {
@@ -50,6 +75,7 @@ export function shouldTrackPageView(request: NextRequest): boolean {
  * Safe to call from Edge middleware; failures are swallowed to avoid breaking navigation.
  */
 export async function trackPageViewIfEligible(request: NextRequest): Promise<void> {
+  if (!isAnalyticsEnvironmentAllowed(request)) return;
   if (!shouldTrackPageView(request)) return;
 
   const cfg = getPublicSupabaseConfig();
