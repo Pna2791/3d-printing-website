@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   /**
    * Captured at `next build` only (Supabase project URL — not the anon key).
    * Next.js forbids `__*` keys here; `warnIfPublicSupabaseUrlDiffersFromBuild()` compares this

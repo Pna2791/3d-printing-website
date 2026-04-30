@@ -49,15 +49,16 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-zinc-200 bg-zinc-100 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="mx-auto w-full max-w-sm rounded-3xl border border-zinc-200 bg-zinc-100 p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="relative aspect-square">
         <Image
           src="/logo-na_3d.png"
-          alt="Mẫu sản phẩm in 3D tại xưởng"
-          width={1200}
-          height={900}
-          className="h-full w-full object-cover"
+          alt="Logo NA 3D"
+          fill
+          className="object-cover object-center rounded-2xl"
           priority
         />
+        </div>
       </div>
     </section>
   );

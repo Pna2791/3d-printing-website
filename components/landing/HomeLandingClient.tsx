@@ -19,6 +19,8 @@ type HomeLandingClientProps = {
   materialsError: string | null;
   printers: PrinterRow[];
   printersError: string | null;
+  showcaseImages: { src: string; alt: string }[];
+  printerImages: { src: string; alt: string }[];
 };
 
 export function HomeLandingClient({
@@ -28,6 +30,8 @@ export function HomeLandingClient({
   materialsError,
   printers,
   printersError,
+  showcaseImages,
+  printerImages,
 }: HomeLandingClientProps) {
   const [isPricingOpen, setIsPricingOpen] = useState(false);
 
@@ -40,9 +44,9 @@ export function HomeLandingClient({
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <HeroSection onOpenPricing={() => setIsPricingOpen(true)} />
 
-        <AboutSection />
+        <ShowcaseSection images={showcaseImages} />
 
-        <ShowcaseSection />
+        <AboutSection images={printerImages} />
 
         <section className="py-16">
           {printersError ? (

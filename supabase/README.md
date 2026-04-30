@@ -4,12 +4,13 @@
 2. `migrations/20250430130000_realtime_printers.sql` — `REPLICA IDENTITY FULL` + `supabase_realtime` publication.
 3. `migrations/20250430140000_orders_mvp_columns.sql` — order line fields (`material_id`, `printer_id`, `quantity`, dimensions).
 4. `migrations/20250430150000_public_readonly_rls.sql` — drop order write policies; `REVOKE` DML from `anon`/`authenticated` on app tables; keep `SELECT` grants.
-5. `seed.sql` — catalog seed (transactional, idempotent `ON CONFLICT`).
+5. `migrations/20260430152000_update_material_pricing_vnd.sql` — apply PLA/PETG VND-per-gram pricing update.
+6. `seed.sql` — catalog seed (transactional, idempotent `ON CONFLICT`).
 
 ## Option A — Supabase Dashboard (recommended for hosted)
 
 1. Project → **SQL** → **New query**.
-2. Paste and run **files (1) → (2) → (3) → (4) → (5)** in order.
+2. Paste and run **files (1) → (2) → (3) → (4) → (5) → (6)** in order.
 3. Enable **Realtime** for `printers` in **Database → Publications** if the migration did not run (managed UI).
 
 ## Option B — `psql` with `DATABASE_URL`
@@ -28,6 +29,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20250430120000_in
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20250430130000_realtime_printers.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20250430140000_orders_mvp_columns.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20250430150000_public_readonly_rls.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260430152000_update_material_pricing_vnd.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/seed.sql
 ```
 

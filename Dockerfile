@@ -44,19 +44,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs
 
-COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
-
-RUN \
-  if [ -f yarn.lock ]; then yarn --frozen-lockfile --production && yarn cache clean; \
-  elif [ -f package-lock.json ]; then npm ci --omit=dev && npm cache clean --force; \
-  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile --prod && pnpm store prune; \
-  else echo "Lockfile not found." && exit 1; \
-  fi
-
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
-
-RUN chown -R nextjs:nodejs /app
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
@@ -65,4 +55,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
-CMD ["npm", "run", "start"]
+CMD ["node", "server.js"]

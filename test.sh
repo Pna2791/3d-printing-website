@@ -12,9 +12,15 @@ if [ ! -f .env ]; then
 fi
 
 export WEB_PORT="${WEB_PORT:-3001}"
+export NO_CACHE="${NO_CACHE:-0}"
 
-echo "==> docker compose build --no-cache web"
-docker compose build --no-cache web
+if [ "$NO_CACHE" = "1" ]; then
+  echo "==> docker compose build --no-cache web"
+  docker compose build --no-cache web
+else
+  echo "==> docker compose build web"
+  docker compose build web
+fi
 
 echo "==> docker compose up -d web (host port ${WEB_PORT} -> container 3000)"
 docker compose up -d web

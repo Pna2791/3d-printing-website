@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { FEATURES } from "@/lib/config";
+import { calculateMaterialPrice } from "@/lib/pricing";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const UUID_RE =
@@ -13,6 +14,8 @@ type OrderBody = {
   dim_x?: unknown;
   dim_y?: unknown;
   dim_z?: unknown;
+  is_student?: unknown;
+  student_discount_used_grams?: unknown;
 };
 
 function parseOptionalDim(v: unknown): number | null {
@@ -50,6 +53,8 @@ async function postOrderWhenEnabled(request: Request) {
   const printerId =
     typeof body.printer_id === "string" ? body.printer_id.trim() : "";
   const quantityRaw = body.quantity;
+  const isStudent = body.is_student === true;
+  const usedDiscountGramsRaw = body.student_discount_used_grams;
 
   if (!UUID_RE.test(materialId)) {
     return NextResponse.json(
@@ -68,6 +73,13 @@ async function postOrderWhenEnabled(request: Request) {
   if (!Number.isInteger(quantity) || quantity < 1) {
     return NextResponse.json(
       { ok: false, error: "quantity must be an integer ≥ 1." },
+      { status: 400 },
+    );
+  }
+  const usedDiscountGrams = Number(usedDiscountGramsRaw ?? 0);
+  if (!Number.isFinite(usedDiscountGrams) || usedDiscountGrams < 0) {
+    return NextResponse.json(
+      { ok: false, error: "student_discount_used_grams must be a number ≥ 0." },
       { status: 400 },
     );
   }
@@ -103,7 +115,7 @@ async function postOrderWhenEnabled(request: Request) {
 
   const { data: material, error: matErr } = await supabase
     .from("materials")
-    .select("id, unit_price")
+    .select("id, unit_price, type")
     .eq("id", materialId)
     .maybeSingle();
 
@@ -127,15 +139,30 @@ async function postOrderWhenEnabled(request: Request) {
     );
   }
 
-  const unitPrice = Number(material.unit_price);
-  if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+  const materialType = material.type === "PLA" || material.type === "PETG" ? material.type : null;
+  const fallbackUnitPrice = Number(material.unit_price);
+  const pricing =
+    materialType !== null
+      ? calculateMaterialPrice({
+          material: materialType,
+          weightGrams: quantity,
+          isStudent,
+          usedDiscountGrams,
+        })
+      : null;
+
+  const total_price =
+    pricing?.totalVnd ??
+    (Number.isFinite(fallbackUnitPrice) && fallbackUnitPrice >= 0
+      ? fallbackUnitPrice * quantity
+      : NaN);
+
+  if (!Number.isFinite(total_price) || total_price < 0) {
     return NextResponse.json(
-      { ok: false, error: "Material has an invalid unit price." },
+      { ok: false, error: "Material has an invalid price configuration." },
       { status: 500 },
     );
   }
-
-  const total_price = unitPrice * quantity;
 
   const { data: inserted, error: insErr } = await supabase
     .from("orders")
