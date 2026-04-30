@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "3D Printing Workshop",
+  title: "Na 3D Printing Workshop",
   description:
     "Live printer availability, material pricing, and STL quoting for your workshop.",
 };

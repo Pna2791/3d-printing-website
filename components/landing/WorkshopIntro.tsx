@@ -11,7 +11,7 @@ export function WorkshopIntro({
   timezone,
   otherEntries,
 }: WorkshopIntroProps) {
-  const title = name?.trim() || "3D printing workshop";
+  const title = name?.trim() || "Na 3D printing workshop";
 
   return (
     <section
@@ -22,7 +22,7 @@ export function WorkshopIntro({
         id="workshop-heading"
         className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
       >
-        Workshop
+        Na 3D printing workshop
       </h2>
       <p className="mt-2 text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-3xl">
         {title}
