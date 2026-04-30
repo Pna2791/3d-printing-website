@@ -1,0 +1,64 @@
+# Orchestration per docs/devops.md — use `.env` in the project root for Compose variable substitution.
+#
+# --- Next.js + Supabase + Docker (read this) ---
+# `NEXT_PUBLIC_*` must appear TWICE for production correctness:
+#   1) `build.args` — passed into the Dockerfile builder so `next build` can inline them into the
+#      **client** JavaScript bundle.
+#   2) `web.environment` — available to `next start` at **runtime** for SSR, Route Handlers, and
+#      server-side `process.env` (must match build-time values, or rebuild).
+# Changing `.env` values for `NEXT_PUBLIC_*` requires: `docker compose build --no-cache web`
+# (see docs/rules.md — Environment Rules).
+#
+# `DATABASE_URL` is **runtime-only** (never a Docker build arg, never sent to the browser). Use it
+# for `psql`, migrations, or optional profile `local-db` with host `db`, e.g.:
+#   postgresql://postgres:postgres@db:5432/postgres
+#
+# Schema: `supabase/migrations/*.sql` targets Supabase Postgres (auth + RLS). Apply via Supabase SQL
+# editor or `psql "$DATABASE_URL"` against your Supabase DB — do not mount these into plain `db`
+# initdb (vanilla Postgres lacks `auth` / JWT helpers the migration expects).
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+    networks:
+      - app
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    profiles:
+      - local-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app
+    restart: unless-stopped
+
+networks:
+  app:
+    driver: bridge
+
+volumes:
+  postgres_data:
