@@ -1,11 +1,13 @@
 import { Globe, Mail, MapPin, Phone, Play, Music2 } from "lucide-react";
 
+import { OFFLINE_ORDER_CONTACT } from "@/lib/config";
+
 type ContactSectionProps = {
   email?: string;
 };
 
 const SOCIAL_LINKS = [
-  { label: "Facebook", href: "https://facebook.com", icon: Globe },
+  { label: "Fanpage", href: OFFLINE_ORDER_CONTACT.fanpageUrl, icon: Globe },
   { label: "YouTube", href: "https://youtube.com", icon: Play },
   { label: "TikTok", href: "https://tiktok.com", icon: Music2 },
 ];

@@ -8,3 +8,11 @@ export const FEATURES = {
   /** When false, middleware skips auth refresh; order UI (requires auth) stays off. */
   AUTH_ENABLED: false,
 } as const;
+
+/** Liên hệ khi đặt hàng trực tuyến tắt — chỉnh `fanpageUrl` / `fanpageLabel` cho đúng fanpage. */
+export const OFFLINE_ORDER_CONTACT = {
+  zaloTelHref: "tel:0848939059",
+  zaloDisplay: "08489.39059",
+  fanpageUrl: "https://www.facebook.com/Na3D.Shop",
+  fanpageLabel: "Fanpage",
+} as const;

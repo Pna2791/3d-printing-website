@@ -99,6 +99,19 @@ export function getDatabaseUrl(): string | undefined {
 }
 
 /**
+ * Server-only: Na 3D Slicer service (`POST /v1/slice`, `GET /v1/tasks/{id}`).
+ * No trailing slash.
+ */
+export function getSlicerApiBaseUrl(): string | null {
+  if (typeof window !== "undefined") {
+    throw new Error("SLICER_API_BASE_URL must not be read in the browser.");
+  }
+  const raw = process.env.SLICER_API_BASE_URL?.trim() ?? "";
+  if (!raw) return null;
+  return raw.replace(/\/+$/, "");
+}
+
+/**
  * Compare runtime `NEXT_PUBLIC_SUPABASE_URL` with the value captured at `next build`
  * (`SUPABASE_PUBLIC_URL_AT_BUILD` via `next.config.ts`). Logs a warning if they differ.
  */

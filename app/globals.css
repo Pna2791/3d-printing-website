@@ -23,3 +23,16 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+@keyframes quote-slicer-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.animate-quote-slicer-progress {
+  animation: quote-slicer-progress 1.5s ease-in-out infinite;
+}
