@@ -1,9 +1,11 @@
+import { GrandOpeningQuotePromo } from "@/components/quote/GrandOpeningQuotePromo";
 import { QuoteEstimatorClient } from "@/components/quote/QuoteEstimatorClient";
 
 export default function QuotePage() {
   return (
     <main className="min-h-screen bg-white px-4 py-12 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl">
+        <GrandOpeningQuotePromo />
         <header className="mb-10 border-b border-zinc-200 pb-8 dark:border-zinc-800">
           <p className="text-sm font-medium uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
             Na 3D

@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { AboutSection } from "@/components/landing/AboutSection";
 import { ContactSection } from "@/components/landing/ContactSection";
+import { GrandOpeningBar } from "@/components/landing/GrandOpeningBar";
+import { GrandOpeningLandingConfetti } from "@/components/landing/GrandOpeningEffects";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { PricingPreview } from "@/components/landing/PricingPreview";
 import { PrinterStatusLive } from "@/components/landing/PrinterStatusLive";
@@ -43,6 +45,8 @@ export function HomeLandingClient({
 
   return (
     <main className="min-h-screen bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
+      <GrandOpeningBar />
+      <GrandOpeningLandingConfetti />
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <HeroSection onOpenPricing={() => setIsPricingOpen(true)} />
 

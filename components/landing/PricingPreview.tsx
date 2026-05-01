@@ -1,3 +1,7 @@
+"use client";
+
+import { motion } from "framer-motion";
+
 import type { MaterialWithPricing } from "@/lib/supabase/types";
 import {
   PRICE_BEFORE_DISCOUNT,
@@ -60,7 +64,24 @@ export function PricingPreview({ materials, onOpenPricing }: PricingPreviewProps
                   <span className="mr-2 text-red-600 line-through dark:text-red-400">
                     {PRICE_BEFORE_DISCOUNT.PLA.studentVndPerGram}đ/g
                   </span>
-                  <span className={afterDiscountClasses}>{PRICING_RULES.PLA.studentVndPerGram}đ/g</span>
+                  {promoActive ? (
+                    <motion.span
+                      className={`inline-block rounded-md px-1.5 py-0.5 ${afterDiscountClasses}`}
+                      animate={{
+                        scale: [1, 1.06, 1],
+                        textShadow: [
+                          "0 0 0 rgba(16,185,129,0)",
+                          "0 0 14px rgba(16,185,129,0.55)",
+                          "0 0 0 rgba(16,185,129,0)",
+                        ],
+                      }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                      {PRICING_RULES.PLA.studentVndPerGram}đ/g
+                    </motion.span>
+                  ) : (
+                    <span className={afterDiscountClasses}>{PRICING_RULES.PLA.studentVndPerGram}đ/g</span>
+                  )}
                   <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                     Sinh viên
                   </span>

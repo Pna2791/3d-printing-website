@@ -36,3 +36,28 @@ body {
 .animate-quote-slicer-progress {
   animation: quote-slicer-progress 1.5s ease-in-out infinite;
 }
+
+@keyframes grand-opening-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.grand-opening-bar-bg {
+  background: linear-gradient(
+    110deg,
+    #059669 0%,
+    #18181b 35%,
+    #047857 55%,
+    #27272a 75%,
+    #059669 100%
+  );
+  background-size: 220% 220%;
+  animation: grand-opening-gradient-shift 8s ease-in-out infinite;
+}
