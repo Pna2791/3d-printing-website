@@ -16,6 +16,7 @@ import {
   MODEL_SCALE_MAX,
   MODEL_SCALE_MIN,
   MODEL_SCALE_STEP,
+  QUOTE_MATERIAL_OPTIONS,
   type SupportedMaterial,
 } from "@/lib/pricing";
 
@@ -563,7 +564,7 @@ export function QuoteEstimatorClient() {
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Loại nhựa</p>
                 <div className="mt-2 flex flex-wrap gap-3">
-                  {(["PLA", "PETG"] as const).map((m) => (
+                  {QUOTE_MATERIAL_OPTIONS.map((m) => (
                     <label
                       key={m}
                       className={[

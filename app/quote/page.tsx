@@ -37,7 +37,7 @@ export default async function QuotePage() {
           </h1>
           <p className="mt-3 max-w-2xl text-zinc-400">
             Tải file STL để hệ thống slice và ước tính thời gian, lượng nhựa và giá theo bảng giá
-            PLA/PETG (người thường / sinh viên).
+            PLA, PETG, PETG-CF, TPU (người thường / sinh viên).
           </p>
         </header>
 

@@ -139,7 +139,13 @@ async function postOrderWhenEnabled(request: Request) {
     );
   }
 
-  const materialType = material.type === "PLA" || material.type === "PETG" ? material.type : null;
+  const materialType =
+    material.type === "PLA" ||
+    material.type === "PETG" ||
+    material.type === "PETG-CF" ||
+    material.type === "TPU"
+      ? material.type
+      : null;
   const fallbackUnitPrice = Number(material.unit_price);
   const pricing =
     materialType !== null

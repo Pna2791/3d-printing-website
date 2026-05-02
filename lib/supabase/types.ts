@@ -1,5 +1,5 @@
 export type PrinterStatus = "ready" | "busy" | "maintenance";
-export type MaterialType = "PLA" | "PETG" | "ABS" | "Resin";
+export type MaterialType = "PLA" | "PETG" | "PETG-CF" | "TPU" | "ABS" | "Resin";
 
 export type Database = {
   public: {

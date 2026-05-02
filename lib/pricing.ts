@@ -1,4 +1,12 @@
-export type SupportedMaterial = "PLA" | "PETG";
+export type SupportedMaterial = "PLA" | "PETG" | "PETG-CF" | "TPU";
+
+/** Materials selectable in the quote estimator (order matches UI). */
+export const QUOTE_MATERIAL_OPTIONS: readonly SupportedMaterial[] = [
+  "PLA",
+  "PETG",
+  "PETG-CF",
+  "TPU",
+] as const;
 
 type MaterialPriceRule = {
   normalVndPerGram: number;
@@ -12,6 +20,14 @@ export const PRICING_RULES: Record<SupportedMaterial, MaterialPriceRule> = {
   },
   PLA: {
     normalVndPerGram: 600,
+    studentVndPerGram: 500,
+  },
+  "PETG-CF": {
+    normalVndPerGram: 600,
+    studentVndPerGram: 500,
+  },
+  TPU: {
+    normalVndPerGram: 700,
     studentVndPerGram: 500,
   },
 };
@@ -31,6 +47,14 @@ export const PRICE_BEFORE_DISCOUNT: Record<
   PETG: {
     normalVndPerGram: 700,
     studentVndPerGram: 500,
+  },
+  "PETG-CF": {
+    normalVndPerGram: 1000,
+    studentVndPerGram: 700,
+  },
+  TPU: {
+    normalVndPerGram: 1000,
+    studentVndPerGram: 700,
   },
 };
 
@@ -184,6 +208,8 @@ export const FILAMENT_CROSS_SECTION_MM2 = Math.PI * Math.pow(1.75 / 2, 2);
 export const FILAMENT_DENSITY_G_PER_CM3: Record<SupportedMaterial, number> = {
   PLA: 1.25,
   PETG: 1.27,
+  "PETG-CF": 1.28,
+  TPU: 1.21,
 };
 
 /**
