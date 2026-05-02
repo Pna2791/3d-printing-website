@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getSlicerApiBaseUrl } from "@/lib/env";
+import { generateThumbnailFromStlBuffer } from "@/lib/thumbnail-generator";
 
 export const runtime = "nodejs";
 
@@ -53,39 +54,6 @@ type SliceEnqueueDoc = {
   task_id?: string;
   status?: string;
 };
-
-function joinUrl(base: string, pathOrUrl: string) {
-  if (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://")) {
-    return pathOrUrl;
-  }
-  const path = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
-  return `${base}${path}`;
-}
-
-async function fetchPreviewAsDataUrl(
-  baseUrl: string,
-  thumbPath: string,
-  signal: AbortSignal,
-): Promise<string | null> {
-  const url = joinUrl(baseUrl, thumbPath);
-  try {
-    const res = await fetch(url, { signal, cache: "no-store" });
-    if (!res.ok) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    const contentType = res.headers.get("content-type")?.split(";")[0]?.trim() || "image/png";
-    if (!contentType.startsWith("image/")) {
-      return `data:image/png;base64,${buf.toString("base64")}`;
-    }
-    return `data:${contentType};base64,${buf.toString("base64")}`;
-  } catch {
-    return null;
-  }
-}
-
-async function fetchNaPreviewJob(baseUrl: string, jobId: string, signal: AbortSignal): Promise<string | null> {
-  const url = `${baseUrl}/v1/preview/${encodeURIComponent(jobId)}`;
-  return fetchPreviewAsDataUrl(baseUrl, url, signal);
-}
 
 async function pollNaSlicerUntilDone(
   baseUrl: string,
@@ -225,8 +193,21 @@ export async function POST(request: Request) {
     );
   }
 
+  let stlBytes: Buffer;
+  try {
+    stlBytes = Buffer.from(await entry.arrayBuffer());
+  } catch {
+    return NextResponse.json(
+      { ok: false, code: "READ_FAILED", error: "Could not read uploaded file." },
+      { status: 400 },
+    );
+  }
+
   const outbound = new FormData();
-  outbound.set("file", entry, entry.name);
+  outbound.set(
+    "file",
+    new File([new Uint8Array(stlBytes)], entry.name, { type: entry.type || "model/stl" }),
+  );
 
   let sliceRes: Response;
   try {
@@ -291,12 +272,17 @@ export async function POST(request: Request) {
   const jobId = typeof na.job_id === "string" && na.job_id ? na.job_id : null;
   const docTaskId = typeof doc.task_id === "string" && doc.task_id ? doc.task_id : null;
 
-  let preview_image: string | null = null;
   let filenameOut = entry.name;
   let filament_used_mm = 0;
   let estimated_print_time = "";
   let model_dimensions = { x_mm: 0, y_mm: 0, z_mm: 0 };
   let publicTaskId: string;
+  let preview_image: string | null = null;
+  let preview_pending = false;
+  let preview_error: string | null = null;
+
+  const thumbPromise =
+    jobId || docTaskId ? generateThumbnailFromStlBuffer(stlBytes, { signal }) : null;
 
   if (jobId) {
     publicTaskId = jobId;
@@ -334,7 +320,17 @@ export async function POST(request: Request) {
       z_mm: Number(dims.z_mm ?? 0),
     };
 
-    preview_image = await fetchNaPreviewJob(baseUrl, jobId, signal);
+    const thumb = thumbPromise ? await thumbPromise : { ok: false as const, reason: "skipped" };
+    if (thumb.ok) {
+      preview_image = thumb.dataUrl;
+    } else {
+      preview_image = null;
+      preview_error = thumb.reason.length > 280 ? `${thumb.reason.slice(0, 280)}…` : thumb.reason;
+      if (preview_error) {
+        console.warn("[api/slicer] thumbnail:", preview_error);
+      }
+    }
+    preview_pending = false;
   } else if (docTaskId) {
     publicTaskId = docTaskId;
     let task: DocStyleTaskResponse;
@@ -371,18 +367,17 @@ export async function POST(request: Request) {
       z_mm: Number(dims.z_mm ?? 0),
     };
 
-    const thumbs = task.previews?.thumbnails ?? [];
-    const firstThumb = thumbs[0];
-    if (typeof firstThumb === "string" && firstThumb.length > 0) {
-      if (firstThumb.startsWith("data:")) {
-        preview_image = firstThumb;
-      } else {
-        preview_image = await fetchPreviewAsDataUrl(baseUrl, firstThumb, signal);
-        if (!preview_image) {
-          preview_image = joinUrl(baseUrl, firstThumb);
-        }
+    const thumb = thumbPromise ? await thumbPromise : { ok: false as const, reason: "skipped" };
+    if (thumb.ok) {
+      preview_image = thumb.dataUrl;
+    } else {
+      preview_image = null;
+      preview_error = thumb.reason.length > 280 ? `${thumb.reason.slice(0, 280)}…` : thumb.reason;
+      if (preview_error) {
+        console.warn("[api/slicer] thumbnail:", preview_error);
       }
     }
+    preview_pending = false;
   } else {
     return NextResponse.json(
       {
@@ -402,5 +397,7 @@ export async function POST(request: Request) {
     estimated_print_time,
     model_dimensions,
     preview_image,
+    preview_error,
+    preview_pending,
   });
 }

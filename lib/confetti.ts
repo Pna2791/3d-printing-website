@@ -37,3 +37,44 @@ export function fireGrandOpeningConfetti() {
     });
   });
 }
+
+/** Nhẹ — khi báo giá nhận metadata slice thành công (trang /quote). */
+export function fireQuoteMetadataConfetti() {
+  if (typeof window === "undefined") return;
+
+  const colors = ["#10b981", "#34d399", "#059669", "#6ee7b7"];
+
+  void import("canvas-confetti").then((mod) => {
+    const confetti = mod.default;
+    confetti({
+      particleCount: 42,
+      spread: 70,
+      origin: { y: 0.35, x: 0.5 },
+      ticks: 120,
+      gravity: 1.1,
+      decay: 0.92,
+      scalar: 0.85,
+      colors,
+    });
+    confetti({
+      particleCount: 28,
+      angle: 55,
+      spread: 50,
+      origin: { y: 0.4, x: 0.42 },
+      ticks: 100,
+      gravity: 1,
+      decay: 0.93,
+      colors,
+    });
+    confetti({
+      particleCount: 28,
+      angle: 125,
+      spread: 50,
+      origin: { y: 0.4, x: 0.58 },
+      ticks: 100,
+      gravity: 1,
+      decay: 0.93,
+      colors,
+    });
+  });
+}

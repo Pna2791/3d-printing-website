@@ -1,19 +1,41 @@
-import { GrandOpeningQuotePromo } from "@/components/quote/GrandOpeningQuotePromo";
-import { QuoteEstimatorClient } from "@/components/quote/QuoteEstimatorClient";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 
-export default function QuotePage() {
+import { GrandOpeningQuotePromo } from "@/components/quote/GrandOpeningQuotePromo";
+import { QuotePageBrand } from "@/components/quote/QuotePageBrand";
+import { QuoteEstimatorClient } from "@/components/quote/QuoteEstimatorClient";
+import { getWorkshopInfo } from "@/services/workshopService";
+
+export const dynamic = "force-dynamic";
+
+export default async function QuotePage() {
+  const workshopRes = await getWorkshopInfo();
+
   return (
-    <main className="min-h-screen bg-white px-4 py-12 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-zinc-900 px-4 py-12 text-zinc-100 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-4xl">
+        <div className="mb-6">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-zinc-100 transition hover:border-emerald-500 hover:bg-zinc-900"
+          >
+            <ArrowLeft className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
+            Về trang chủ
+          </Link>
+        </div>
+
+        <QuotePageBrand
+          workshopRows={workshopRes.data ?? []}
+          workshopError={workshopRes.error}
+          surface="dark"
+        />
+
         <GrandOpeningQuotePromo />
-        <header className="mb-10 border-b border-zinc-200 pb-8 dark:border-zinc-800">
-          <p className="text-sm font-medium uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-            Na 3D
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
+        <header className="mb-10 border-b border-zinc-800 pb-8">
+          <h1 className="text-3xl font-semibold tracking-tight text-zinc-50 sm:text-4xl">
             Báo giá file in 3D
           </h1>
-          <p className="mt-3 max-w-2xl text-zinc-600 dark:text-zinc-300">
+          <p className="mt-3 max-w-2xl text-zinc-400">
             Tải file STL để hệ thống slice và ước tính thời gian, lượng nhựa và giá theo bảng giá
             PLA/PETG (người thường / sinh viên).
           </p>

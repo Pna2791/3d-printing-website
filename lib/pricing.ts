@@ -46,6 +46,45 @@ export const STUDENT_PROMO = {
 export const MIN_ORDER_VND_STUDENT = 30_000;
 export const MIN_ORDER_VND_NORMAL = 50_000;
 
+/** Uniform model scale for quote UI (no re-slice / no new preview). */
+export const MODEL_SCALE_MIN = 0.25;
+export const MODEL_SCALE_MAX = 3;
+export const MODEL_SCALE_STEP = 0.05;
+export const MODEL_SCALE_DEFAULT = 1;
+
+/**
+ * Clamp uniform scale factor for UI + pricing.
+ * `step` snapping keeps the range slider and displayed % aligned.
+ */
+export function clampUniformModelScale(scale: number): number {
+  const raw = Number.isFinite(scale) ? scale : MODEL_SCALE_DEFAULT;
+  const clamped = Math.min(MODEL_SCALE_MAX, Math.max(MODEL_SCALE_MIN, raw));
+  const n = Math.round(clamped / MODEL_SCALE_STEP);
+  return Math.round(n * MODEL_SCALE_STEP * 100) / 100;
+}
+
+/**
+ * Heuristic: slicer `filament_used_mm` scales ~with printed volume when uniformly scaling the mesh
+ * (linear dimensions ×s ⇒ volume ×s³). Used only for instant quote UI, not a new slice.
+ */
+export function scaledFilamentMmFromUniformScale(baseFilamentMm: number, uniformScale: number): number {
+  const s = clampUniformModelScale(uniformScale);
+  const base = Math.max(0, Number.isFinite(baseFilamentMm) ? baseFilamentMm : 0);
+  return base * Math.pow(s, 3);
+}
+
+export function scaledBoundingBoxMm(
+  dims: { x_mm: number; y_mm: number; z_mm: number },
+  uniformScale: number,
+): { x_mm: number; y_mm: number; z_mm: number } {
+  const s = clampUniformModelScale(uniformScale);
+  return {
+    x_mm: (Number.isFinite(dims.x_mm) ? dims.x_mm : 0) * s,
+    y_mm: (Number.isFinite(dims.y_mm) ? dims.y_mm : 0) * s,
+    z_mm: (Number.isFinite(dims.z_mm) ? dims.z_mm : 0) * s,
+  };
+}
+
 export type MinimumOrderFloorResult = {
   /** Tổng trước giá sàn (đã làm tròn số nguyên VND). */
   subtotalVnd: number;
