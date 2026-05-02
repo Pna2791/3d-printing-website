@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { getSlicerApiBaseUrl } from "@/lib/env";
+import {
+  applyUniformScaleToSlicerMetadata,
+  clampUniformModelScale,
+  MODEL_SCALE_DEFAULT,
+} from "@/lib/pricing";
 import { generateThumbnailFromStlBuffer } from "@/lib/thumbnail-generator";
 
 export const runtime = "nodejs";
@@ -13,6 +18,12 @@ function sleep(ms: number) {
   return new Promise<void>((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function parseFormBool(v: FormDataEntryValue | null): boolean {
+  if (v == null) return false;
+  const s = String(v).trim().toLowerCase();
+  return s === "1" || s === "true" || s === "yes" || s === "on";
 }
 
 /** Na `online_slicer` FastAPI — `GET /v1/status/{job_id}`. */
@@ -163,9 +174,17 @@ export async function POST(request: Request) {
   let form: FormData;
   try {
     form = await request.formData();
-  } catch {
+  } catch (err) {
+    console.error("[api/slicer] formData failed:", err);
     return NextResponse.json(
-      { ok: false, code: "BAD_REQUEST", error: "Expected multipart form data." },
+      {
+        ok: false,
+        code: "BAD_REQUEST",
+        error:
+          "Could not parse multipart upload. Send the STL as form field \"file\". " +
+          "If the file is large, ensure next.config.ts sets experimental.middlewareClientMaxBodySize " +
+          "above the default 10 MB (see Next.js docs for middlewareClientMaxBodySize).",
+      },
       { status: 400 },
     );
   }
@@ -272,6 +291,14 @@ export async function POST(request: Request) {
   const jobId = typeof na.job_id === "string" && na.job_id ? na.job_id : null;
   const docTaskId = typeof doc.task_id === "string" && doc.task_id ? doc.task_id : null;
 
+  const skipPreview = parseFormBool(form.get("skip_preview"));
+  const rawScale = form.get("uniform_scale");
+  let uniformScale = MODEL_SCALE_DEFAULT;
+  if (rawScale != null && String(rawScale).trim() !== "") {
+    const n = Number.parseFloat(String(rawScale));
+    if (Number.isFinite(n)) uniformScale = clampUniformModelScale(n);
+  }
+
   let filenameOut = entry.name;
   let filament_used_mm = 0;
   let estimated_print_time = "";
@@ -282,7 +309,9 @@ export async function POST(request: Request) {
   let preview_error: string | null = null;
 
   const thumbPromise =
-    jobId || docTaskId ? generateThumbnailFromStlBuffer(stlBytes, { signal }) : null;
+    !skipPreview && (jobId || docTaskId)
+      ? generateThumbnailFromStlBuffer(stlBytes, { signal })
+      : null;
 
   if (jobId) {
     publicTaskId = jobId;
@@ -389,6 +418,18 @@ export async function POST(request: Request) {
     );
   }
 
+  const scaledMeta = applyUniformScaleToSlicerMetadata(
+    {
+      filament_used_mm,
+      estimated_print_time,
+      model_dimensions,
+    },
+    uniformScale,
+  );
+  filament_used_mm = scaledMeta.filament_used_mm;
+  estimated_print_time = scaledMeta.estimated_print_time;
+  model_dimensions = scaledMeta.model_dimensions;
+
   return NextResponse.json({
     ok: true,
     task_id: publicTaskId,
@@ -399,5 +440,7 @@ export async function POST(request: Request) {
     preview_image,
     preview_error,
     preview_pending,
+    uniform_scale: uniformScale,
+    skip_preview: skipPreview,
   });
 }

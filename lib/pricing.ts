@@ -85,6 +85,71 @@ export function scaledBoundingBoxMm(
   };
 }
 
+/** Slicer metadata fields we can rescale without a new mesh (same heuristics as filament / box). */
+export type SlicerLikeMetadata = {
+  filament_used_mm: number;
+  estimated_print_time: string;
+  model_dimensions: { x_mm: number; y_mm: number; z_mm: number };
+};
+
+/**
+ * Parse rough duration strings from slicer (e.g. `2h 30m`, `1:15:00`, `45m`). Returns seconds or null.
+ */
+export function parseLooseDurationToSeconds(label: string): number | null {
+  const t = label.trim();
+  if (!t) return null;
+  const iso = /^(\d+):(\d{2}):(\d{2})$/.exec(t);
+  if (iso) {
+    return Number(iso[1]) * 3600 + Number(iso[2]) * 60 + Number(iso[3]);
+  }
+  const hm = /^(\d+):(\d{2})$/.exec(t);
+  if (hm) return Number(hm[1]) * 3600 + Number(hm[2]) * 60;
+  let sec = 0;
+  const h = /(\d+)\s*h(?:our)?s?/i.exec(t);
+  const m = /(\d+)\s*m(?:in)?s?/i.exec(t);
+  const s = /(\d+)\s*s(?:ec)?s?/i.exec(t);
+  if (h) sec += Number(h[1]) * 3600;
+  if (m) sec += Number(m[1]) * 60;
+  if (s) sec += Number(s[1]);
+  if (h || m || s) return sec;
+  const num = Number(t);
+  if (Number.isFinite(num) && num >= 0 && num < 100_000 && !t.includes(":")) {
+    return num * 60;
+  }
+  return null;
+}
+
+export function formatSecondsApproxHuman(totalSec: number): string {
+  const s = Math.max(0, Math.round(totalSec));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const r = s % 60;
+  if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  if (m > 0) return r > 0 ? `${m}m ${r}s` : `${m}m`;
+  return `${r}s`;
+}
+
+/** Scale print duration ~with extruded volume (×s³) when label parses; otherwise return original. */
+export function scaleEstimatedPrintTimeHeuristic(label: string, uniformScale: number): string {
+  const sc = clampUniformModelScale(uniformScale);
+  if (sc === 1 || !label.trim()) return label;
+  const sec = parseLooseDurationToSeconds(label);
+  if (sec == null) return label;
+  return formatSecondsApproxHuman(sec * Math.pow(sc, 3));
+}
+
+export function applyUniformScaleToSlicerMetadata(
+  meta: SlicerLikeMetadata,
+  uniformScale: number,
+): SlicerLikeMetadata {
+  const s = clampUniformModelScale(uniformScale);
+  return {
+    filament_used_mm: scaledFilamentMmFromUniformScale(meta.filament_used_mm, s),
+    estimated_print_time: scaleEstimatedPrintTimeHeuristic(meta.estimated_print_time, s),
+    model_dimensions: scaledBoundingBoxMm(meta.model_dimensions, s),
+  };
+}
+
 export type MinimumOrderFloorResult = {
   /** Tổng trước giá sàn (đã làm tròn số nguyên VND). */
   subtotalVnd: number;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useDropzone } from "react-dropzone";
 import { Box, Clock, Info, Loader2, Minus, Plus, Ruler, Scaling, Upload, Weight } from "lucide-react";
@@ -16,8 +16,6 @@ import {
   MODEL_SCALE_MAX,
   MODEL_SCALE_MIN,
   MODEL_SCALE_STEP,
-  scaledBoundingBoxMm,
-  scaledFilamentMmFromUniformScale,
   type SupportedMaterial,
 } from "@/lib/pricing";
 
@@ -32,6 +30,8 @@ type SliceOkResponse = {
   /** Server hint when `preview_image` is null (thumb microservice / env). */
   preview_error?: string | null;
   preview_pending?: boolean;
+  uniform_scale?: number;
+  skip_preview?: boolean;
 };
 
 type QuoteSliceMetadata = {
@@ -129,6 +129,9 @@ export function QuoteEstimatorClient() {
   const [previewStatus, setPreviewStatus] = useState<PreviewLoadStatus>("idle");
   const [previewHint, setPreviewHint] = useState<string | null>(null);
   const [modelScale, setModelScale] = useState(MODEL_SCALE_DEFAULT);
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [isRescaling, setIsRescaling] = useState(false);
+  const lastSyncedScaleRef = useRef(MODEL_SCALE_DEFAULT);
 
   const onDrop = useCallback(async (accepted: File[]) => {
     const file = accepted[0];
@@ -139,12 +142,15 @@ export function QuoteEstimatorClient() {
     setPreviewStatus("idle");
     setPreviewHint(null);
     setModelScale(MODEL_SCALE_DEFAULT);
+    setSourceFile(null);
+    lastSyncedScaleRef.current = MODEL_SCALE_DEFAULT;
     setPendingFileName(file.name);
     setIsSlicing(true);
     try {
       // multipart/form-data: chỉ truyền FormData — trình duyệt tự gắn boundary, không set Content-Type thủ công.
       const body = new FormData();
       body.append("file", file, file.name);
+      body.append("uniform_scale", String(MODEL_SCALE_DEFAULT));
       const res = await fetch("/api/slicer", {
         method: "POST",
         body,
@@ -164,6 +170,8 @@ export function QuoteEstimatorClient() {
         estimated_print_time: data.estimated_print_time,
         model_dimensions: data.model_dimensions,
       });
+      lastSyncedScaleRef.current = clampUniformModelScale(MODEL_SCALE_DEFAULT);
+      setSourceFile(file);
       setPendingFileName(null);
       fireQuoteMetadataConfetti();
       if (data.preview_image) {
@@ -184,28 +192,75 @@ export function QuoteEstimatorClient() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!sourceFile) return;
+    const scale = clampUniformModelScale(modelScale);
+    if (scale === lastSyncedScaleRef.current) return;
+
+    const ac = new AbortController();
+    const tid = window.setTimeout(() => {
+      void (async () => {
+        setIsRescaling(true);
+        setError(null);
+        try {
+          const body = new FormData();
+          body.append("file", sourceFile, sourceFile.name);
+          body.append("skip_preview", "1");
+          body.append("uniform_scale", String(scale));
+          const res = await fetch("/api/slicer", {
+            method: "POST",
+            body,
+            signal: ac.signal,
+          });
+          const json = (await res.json()) as SliceOkResponse | SliceErrResponse;
+          if (!res.ok || !("ok" in json) || json.ok !== true) {
+            const err = json as SliceErrResponse;
+            setError(err.error ?? `Lỗi ${res.status}`);
+            setModelScale(lastSyncedScaleRef.current);
+            return;
+          }
+          const data = json;
+          setMetadata((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  task_id: data.task_id,
+                  filename: data.filename,
+                  filament_used_mm: data.filament_used_mm,
+                  estimated_print_time: data.estimated_print_time,
+                  model_dimensions: data.model_dimensions,
+                }
+              : null,
+          );
+          lastSyncedScaleRef.current = scale;
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") return;
+          setError(e instanceof Error ? e.message : "Lỗi mạng");
+          setModelScale(lastSyncedScaleRef.current);
+        } finally {
+          setIsRescaling(false);
+        }
+      })();
+    }, 650);
+
+    return () => {
+      window.clearTimeout(tid);
+      ac.abort();
+    };
+  }, [modelScale, sourceFile]);
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: { "model/stl": [".stl"], "application/sla": [".stl"] },
     maxFiles: 1,
-    disabled: isSlicing,
+    disabled: isSlicing || isRescaling,
     multiple: false,
   });
 
-  const scaledFilamentMm = useMemo(() => {
-    if (!metadata) return 0;
-    return scaledFilamentMmFromUniformScale(metadata.filament_used_mm, modelScale);
-  }, [metadata, modelScale]);
-
-  const scaledDims = useMemo(() => {
-    if (!metadata) return null;
-    return scaledBoundingBoxMm(metadata.model_dimensions, modelScale);
-  }, [metadata, modelScale]);
-
   const cost = useMemo(() => {
     if (!metadata) return null;
-    return estimateCostFromSlicer(scaledFilamentMm, material, isStudent);
-  }, [metadata, material, isStudent, scaledFilamentMm]);
+    return estimateCostFromSlicer(metadata.filament_used_mm, material, isStudent);
+  }, [metadata, material, isStudent]);
 
   const unitWeightGramsCeil = cost ? Math.ceil(cost.weightGrams) : 0;
 
@@ -265,7 +320,7 @@ export function QuoteEstimatorClient() {
 
   const displayFilename = metadata?.filename ?? pendingFileName ?? "";
   const showWorkspace = Boolean(pendingFileName || metadata);
-  const showStatSkeletons = isSlicing || !metadata;
+  const showStatSkeletons = isSlicing || !metadata || isRescaling;
   const previewGenerating = isSlicing;
 
   return (
@@ -393,13 +448,11 @@ export function QuoteEstimatorClient() {
                               Kích thước (XYZ)
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
-                              {scaledDims
-                                ? formatDimensionsXyzMm(scaledDims.x_mm, scaledDims.y_mm, scaledDims.z_mm)
-                                : formatDimensionsXyzMm(
-                                    metadata.model_dimensions.x_mm,
-                                    metadata.model_dimensions.y_mm,
-                                    metadata.model_dimensions.z_mm,
-                                  )}
+                              {formatDimensionsXyzMm(
+                                metadata.model_dimensions.x_mm,
+                                metadata.model_dimensions.y_mm,
+                                metadata.model_dimensions.z_mm,
+                              )}
                             </p>
                           </div>
                         </li>
@@ -412,11 +465,6 @@ export function QuoteEstimatorClient() {
                             <p className="text-sm font-semibold text-zinc-100">
                               {metadata.estimated_print_time || "—"}
                             </p>
-                            {modelScale !== MODEL_SCALE_DEFAULT ? (
-                              <p className="mt-1 text-[11px] leading-snug text-zinc-500">
-                                Theo slicer file gốc; đổi tỷ lệ không tái slice nên không cập nhật thời gian.
-                              </p>
-                            ) : null}
                           </div>
                         </li>
                         <li className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
@@ -426,14 +474,10 @@ export function QuoteEstimatorClient() {
                               Độ dài nhựa đùn (1 mẫu)
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
-                              {Number.isFinite(scaledFilamentMm) ? `${scaledFilamentMm.toFixed(0)} mm` : "—"}
+                              {Number.isFinite(metadata.filament_used_mm)
+                                ? `${metadata.filament_used_mm.toFixed(0)} mm`
+                                : "—"}
                             </p>
-                            {modelScale !== MODEL_SCALE_DEFAULT ? (
-                              <p className="mt-1 text-[11px] text-zinc-500">
-                                Ước tính theo tỷ lệ khối (×{(clampUniformModelScale(modelScale) ** 3).toFixed(2)} so với
-                                file gốc).
-                              </p>
-                            ) : null}
                           </div>
                         </li>
                         <li className="flex items-start gap-3 rounded-xl border border-zinc-800 bg-zinc-900/50 px-4 py-3">
@@ -470,17 +514,14 @@ export function QuoteEstimatorClient() {
                       max={MODEL_SCALE_MAX}
                       step={MODEL_SCALE_STEP}
                       value={clampUniformModelScale(modelScale)}
+                      disabled={isSlicing || isRescaling}
                       onChange={(e) => setModelScale(clampUniformModelScale(Number.parseFloat(e.target.value)))}
-                      className="h-2 min-w-[140px] flex-1 cursor-pointer appearance-none rounded-full bg-zinc-700 accent-emerald-500"
+                      className="h-2 min-w-[140px] flex-1 cursor-pointer appearance-none rounded-full bg-zinc-700 accent-emerald-500 disabled:cursor-not-allowed disabled:opacity-40"
                     />
                     <span className="min-w-[3.5rem] text-right text-sm font-bold tabular-nums text-emerald-400">
                       {(clampUniformModelScale(modelScale) * 100).toFixed(0)}%
                     </span>
                   </div>
-                  <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
-                    Giá và nhựa cập nhật ngay (ước tính theo khối × tỷ lệ³). Ảnh xem trước không đổi — không gọi lại
-                    thumbnail.
-                  </p>
                 </div>
               ) : null}
 
