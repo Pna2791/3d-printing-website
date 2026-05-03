@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+
+import { rootLayoutMetadata } from "@/lib/seo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -12,11 +13,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Na 3D Printing Workshop",
-  description:
-    "Live printer availability, material pricing, and STL quoting for your workshop.",
-};
+export const metadata = rootLayoutMetadata();
 
 export default function RootLayout({
   children,
@@ -24,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="vi">
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >

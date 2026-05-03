@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { AboutSection } from "@/components/landing/AboutSection";
+import { EnclosedPrintingSection } from "@/components/landing/EnclosedPrintingSection";
 import { ContactSection } from "@/components/landing/ContactSection";
 import { GrandOpeningBar } from "@/components/landing/GrandOpeningBar";
 import { GrandOpeningLandingConfetti } from "@/components/landing/GrandOpeningEffects";
@@ -49,6 +50,10 @@ export function HomeLandingClient({
       <GrandOpeningLandingConfetti />
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <HeroSection onOpenPricing={() => setIsPricingOpen(true)} />
+
+        <div className="py-8">
+          <EnclosedPrintingSection />
+        </div>
 
         <ShowcaseSection images={showcaseImages} />
 

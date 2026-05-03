@@ -19,13 +19,14 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
     <section className="grid gap-10 py-16 lg:grid-cols-2 lg:items-center">
       <div>
         <p className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1 text-sm font-medium text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
-          Xưởng in 3D tại khu vực Thủ Đức
+          Ship toàn quốc — Ưu đãi lớn cho sinh viên
         </p>
         <h1 className="mt-5 text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-5xl">
-          Dịch vụ in 3D giá tốt tại Làng Đại Học
+          In 3D giá rẻ — NA 3D SHOP giao hàng COD cả nước
         </h1>
         <p className="mt-4 text-lg text-zinc-600 dark:text-zinc-300">
-          In nhanh - Giá minh bạch - Hỗ trợ tận tình
+          Xưởng tại Làng Đại Học, TP.HCM — giá minh bạch, ưu đãi đặc biệt cho sinh viên và khách nội thành; tư vấn
+          tận tình từng đơn.
         </p>
 
         {promo ? (
@@ -83,7 +84,7 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
         <div className="relative aspect-square">
           <Image
             src="/logo-na_3d.png"
-            alt="Logo NA 3D"
+            alt="Logo NA 3D SHOP — in 3D giá rẻ, ship toàn quốc"
             fill
             className="object-cover object-center rounded-2xl"
             priority

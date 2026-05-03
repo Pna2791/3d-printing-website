@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useDropzone } from "react-dropzone";
 import { Box, Clock, Info, Loader2, Minus, Plus, Ruler, Scaling, Upload, Weight } from "lucide-react";
 
+import { MaterialOptionWithTooltip } from "@/components/quote/MaterialOptionWithTooltip";
 import { fireQuoteMetadataConfetti } from "@/lib/confetti";
+import { quoteStlPreviewImageAlt } from "@/lib/quote-stl-preview-alt";
 import { FEATURES, OFFLINE_ORDER_CONTACT } from "@/lib/config";
 import {
   applyMinimumOrderFloor,
@@ -28,6 +30,8 @@ type SliceOkResponse = {
   estimated_print_time: string;
   model_dimensions: { x_mm: number; y_mm: number; z_mm: number };
   preview_image: string | null;
+  /** Alt text aligned with `quote_material` + filename (SEO). */
+  preview_image_alt?: string;
   /** Server hint when `preview_image` is null (thumb microservice / env). */
   preview_error?: string | null;
   preview_pending?: boolean;
@@ -152,6 +156,7 @@ export function QuoteEstimatorClient() {
       const body = new FormData();
       body.append("file", file, file.name);
       body.append("uniform_scale", String(MODEL_SCALE_DEFAULT));
+      body.append("quote_material", material);
       const res = await fetch("/api/slicer", {
         method: "POST",
         body,
@@ -191,7 +196,7 @@ export function QuoteEstimatorClient() {
     } finally {
       setIsSlicing(false);
     }
-  }, []);
+  }, [material]);
 
   useEffect(() => {
     if (!sourceFile) return;
@@ -367,7 +372,7 @@ export function QuoteEstimatorClient() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={previewUrl}
-                      alt={`Xem trước ${displayFilename}`}
+                      alt={quoteStlPreviewImageAlt(displayFilename.trim() || "STL", material)}
                       className="mx-auto max-h-80 w-full object-contain"
                       onError={onPreviewImageError}
                     />
@@ -561,29 +566,36 @@ export function QuoteEstimatorClient() {
                 ) : null}
               </div>
 
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Loại nhựa</p>
-                <div className="mt-2 flex flex-wrap gap-3">
+              <div className="overflow-visible">
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                  <p
+                    id="quote-material-label"
+                    className="text-xs font-medium uppercase tracking-wide text-zinc-500"
+                  >
+                    Loại nhựa
+                  </p>
+                  <Link
+                    href="/materials"
+                    className="text-xs font-semibold text-emerald-400 underline-offset-2 hover:text-emerald-300 hover:underline"
+                  >
+                    Hướng dẫn chi tiết
+                  </Link>
+                </div>
+                <p className="mt-1 text-[11px] leading-snug text-zinc-600 md:hidden">
+                  Chạm giữ chip nhựa hoặc bấm biểu tượng trợ giúp bên cạnh để xem gợi ý nhanh.
+                </p>
+                <div
+                  className="mt-2 flex flex-wrap gap-3 overflow-visible"
+                  role="radiogroup"
+                  aria-labelledby="quote-material-label"
+                >
                   {QUOTE_MATERIAL_OPTIONS.map((m) => (
-                    <label
+                    <MaterialOptionWithTooltip
                       key={m}
-                      className={[
-                        "flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition",
-                        material === m
-                          ? "border-emerald-500 bg-emerald-500/15 text-emerald-100"
-                          : "border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-emerald-500/40",
-                      ].join(" ")}
-                    >
-                      <input
-                        type="radio"
-                        name="material"
-                        value={m}
-                        checked={material === m}
-                        onChange={() => setMaterial(m)}
-                        className="sr-only"
-                      />
-                      {m}
-                    </label>
+                      material={m}
+                      selected={material === m}
+                      onSelect={() => setMaterial(m)}
+                    />
                   ))}
                 </div>
               </div>

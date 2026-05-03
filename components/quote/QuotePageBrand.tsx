@@ -17,7 +17,7 @@ export function QuotePageBrand({
   surface = "light",
 }: QuotePageBrandProps) {
   const map = Object.fromEntries(workshopRows.map((row) => [row.key, row.value]));
-  const name = map.workshop_name?.trim() || "Na 3D";
+  const name = map.workshop_name?.trim() || "NA 3D SHOP";
   const email = map.contact_email?.trim();
   const address = map.address?.trim() ?? map.location?.trim();
 
@@ -61,9 +61,9 @@ export function QuotePageBrand({
 
       <div className="min-w-0 flex-1 text-center sm:text-left">
         <p className={`text-xs font-semibold uppercase tracking-wider ${accent}`}>Xưởng in 3D</p>
-        <h2 className={`mt-1 text-xl font-semibold tracking-tight sm:text-2xl ${titleClass}`}>
+        <p className={`mt-1 text-xl font-semibold tracking-tight sm:text-2xl ${titleClass}`}>
           {name}
-        </h2>
+        </p>
 
         {workshopError ? (
           <p className="mt-2 text-xs text-amber-400">

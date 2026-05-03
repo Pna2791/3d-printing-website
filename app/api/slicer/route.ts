@@ -6,6 +6,7 @@ import {
   clampUniformModelScale,
   MODEL_SCALE_DEFAULT,
 } from "@/lib/pricing";
+import { parseQuoteMaterialFromForm, quoteStlPreviewImageAlt } from "@/lib/quote-stl-preview-alt";
 import { generateThumbnailFromStlBuffer } from "@/lib/thumbnail-generator";
 
 export const runtime = "nodejs";
@@ -292,6 +293,7 @@ export async function POST(request: Request) {
   const docTaskId = typeof doc.task_id === "string" && doc.task_id ? doc.task_id : null;
 
   const skipPreview = parseFormBool(form.get("skip_preview"));
+  const quoteMaterial = parseQuoteMaterialFromForm(form);
   const rawScale = form.get("uniform_scale");
   let uniformScale = MODEL_SCALE_DEFAULT;
   if (rawScale != null && String(rawScale).trim() !== "") {
@@ -430,6 +432,8 @@ export async function POST(request: Request) {
   estimated_print_time = scaledMeta.estimated_print_time;
   model_dimensions = scaledMeta.model_dimensions;
 
+  const preview_image_alt = quoteStlPreviewImageAlt(filenameOut, quoteMaterial);
+
   return NextResponse.json({
     ok: true,
     task_id: publicTaskId,
@@ -438,6 +442,7 @@ export async function POST(request: Request) {
     estimated_print_time,
     model_dimensions,
     preview_image,
+    preview_image_alt,
     preview_error,
     preview_pending,
     uniform_scale: uniformScale,
