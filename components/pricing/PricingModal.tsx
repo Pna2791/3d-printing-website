@@ -83,6 +83,42 @@ export function PricingModal({ open, onClose }: PricingModalProps) {
                   </span>
                 </td>
               </tr>
+              <tr>
+                <td className="px-4 py-3 text-zinc-800 dark:text-zinc-100">PETG-CF</td>
+                <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-50">
+                  <span className="mr-2 text-red-600 line-through dark:text-red-400">
+                    {PRICE_BEFORE_DISCOUNT["PETG-CF"].normalVndPerGram}đ/g
+                  </span>
+                  <span>{PRICING_RULES["PETG-CF"].normalVndPerGram}đ/g</span>
+                </td>
+                <td className="px-4 py-3 text-zinc-900 dark:text-zinc-50">
+                  <span className="mr-2 text-red-600 line-through dark:text-red-400">
+                    {PRICE_BEFORE_DISCOUNT["PETG-CF"].studentVndPerGram}đ/g
+                  </span>
+                  <span className={afterDiscountClasses}>{PRICING_RULES["PETG-CF"].studentVndPerGram}đ/g</span>
+                  <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    Sinh viên
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 text-zinc-800 dark:text-zinc-100">TPU</td>
+                <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-50">
+                  <span className="mr-2 text-red-600 line-through dark:text-red-400">
+                    {PRICE_BEFORE_DISCOUNT.TPU.normalVndPerGram}đ/g
+                  </span>
+                  <span>{PRICING_RULES.TPU.normalVndPerGram}đ/g</span>
+                </td>
+                <td className="px-4 py-3 text-zinc-900 dark:text-zinc-50">
+                  <span className="mr-2 text-red-600 line-through dark:text-red-400">
+                    {PRICE_BEFORE_DISCOUNT.TPU.studentVndPerGram}đ/g
+                  </span>
+                  <span className={afterDiscountClasses}>{PRICING_RULES.TPU.studentVndPerGram}đ/g</span>
+                  <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    Sinh viên
+                  </span>
+                </td>
+              </tr>
             </tbody>
           </table>
         </div>

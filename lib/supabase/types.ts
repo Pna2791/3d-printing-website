@@ -1,5 +1,5 @@
 export type PrinterStatus = "ready" | "busy" | "maintenance";
-export type MaterialType = "PLA" | "PETG" | "ABS" | "Resin";
+export type MaterialType = "PLA" | "PETG" | "PETG-CF" | "TPU" | "ABS" | "Resin";
 
 export type Database = {
   public: {
@@ -146,6 +146,75 @@ export type Database = {
           user_agent?: string | null;
           ip_hash?: string;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      quote_checkout_requests: {
+        Row: {
+          id: string;
+          created_at: string;
+          customer_name: string;
+          customer_phone: string;
+          customer_note: string;
+          slicer_task_id: string;
+          filename: string;
+          material: string;
+          is_student: boolean;
+          student_id_verification_pending: boolean;
+          quantity: number;
+          model_scale: number;
+          dim_x_mm: number;
+          dim_y_mm: number;
+          dim_z_mm: number;
+          filament_used_mm: number;
+          estimated_print_time: string;
+          total_vnd: number;
+          line_subtotal_vnd: number;
+          floor_applied: boolean;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          customer_name: string;
+          customer_phone: string;
+          customer_note?: string;
+          slicer_task_id: string;
+          filename: string;
+          material: string;
+          is_student?: boolean;
+          student_id_verification_pending?: boolean;
+          quantity: number;
+          model_scale: number;
+          dim_x_mm: number;
+          dim_y_mm: number;
+          dim_z_mm: number;
+          filament_used_mm: number;
+          estimated_print_time?: string;
+          total_vnd: number;
+          line_subtotal_vnd: number;
+          floor_applied?: boolean;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          customer_name?: string;
+          customer_phone?: string;
+          customer_note?: string;
+          slicer_task_id?: string;
+          filename?: string;
+          material?: string;
+          is_student?: boolean;
+          student_id_verification_pending?: boolean;
+          quantity?: number;
+          model_scale?: number;
+          dim_x_mm?: number;
+          dim_y_mm?: number;
+          dim_z_mm?: number;
+          filament_used_mm?: number;
+          estimated_print_time?: string;
+          total_vnd?: number;
+          line_subtotal_vnd?: number;
+          floor_applied?: boolean;
         };
         Relationships: [];
       };

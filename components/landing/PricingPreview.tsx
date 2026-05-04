@@ -1,3 +1,7 @@
+"use client";
+
+import { motion } from "framer-motion";
+
 import type { MaterialWithPricing } from "@/lib/supabase/types";
 import {
   PRICE_BEFORE_DISCOUNT,
@@ -22,6 +26,18 @@ export function PricingPreview({ materials, onOpenPricing }: PricingPreviewProps
   });
   const petg = calculateMaterialPrice({
     material: "PETG",
+    weightGrams: STUDENT_PROMO.firstDiscountGrams,
+    isStudent: true,
+    usedDiscountGrams: 0,
+  });
+  const petgCf = calculateMaterialPrice({
+    material: "PETG-CF",
+    weightGrams: STUDENT_PROMO.firstDiscountGrams,
+    isStudent: true,
+    usedDiscountGrams: 0,
+  });
+  const tpu = calculateMaterialPrice({
+    material: "TPU",
     weightGrams: STUDENT_PROMO.firstDiscountGrams,
     isStudent: true,
     usedDiscountGrams: 0,
@@ -60,7 +76,24 @@ export function PricingPreview({ materials, onOpenPricing }: PricingPreviewProps
                   <span className="mr-2 text-red-600 line-through dark:text-red-400">
                     {PRICE_BEFORE_DISCOUNT.PLA.studentVndPerGram}đ/g
                   </span>
-                  <span className={afterDiscountClasses}>{PRICING_RULES.PLA.studentVndPerGram}đ/g</span>
+                  {promoActive ? (
+                    <motion.span
+                      className={`inline-block rounded-md px-1.5 py-0.5 ${afterDiscountClasses}`}
+                      animate={{
+                        scale: [1, 1.06, 1],
+                        textShadow: [
+                          "0 0 0 rgba(16,185,129,0)",
+                          "0 0 14px rgba(16,185,129,0.55)",
+                          "0 0 0 rgba(16,185,129,0)",
+                        ],
+                      }}
+                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                      {PRICING_RULES.PLA.studentVndPerGram}đ/g
+                    </motion.span>
+                  ) : (
+                    <span className={afterDiscountClasses}>{PRICING_RULES.PLA.studentVndPerGram}đ/g</span>
+                  )}
                   <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                     Sinh viên
                   </span>
@@ -79,6 +112,42 @@ export function PricingPreview({ materials, onOpenPricing }: PricingPreviewProps
                     {PRICE_BEFORE_DISCOUNT.PETG.studentVndPerGram}đ/g
                   </span>
                   <span className={afterDiscountClasses}>{PRICING_RULES.PETG.studentVndPerGram}đ/g</span>
+                  <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    Sinh viên
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-medium text-zinc-800 dark:text-zinc-100">PETG-CF</td>
+                <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-50">
+                  <span className="mr-2 text-red-600 line-through dark:text-red-400">
+                    {PRICE_BEFORE_DISCOUNT["PETG-CF"].normalVndPerGram}đ/g
+                  </span>
+                  <span>{petgCf.normalVndPerGram}đ/g</span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="mr-2 text-red-600 line-through dark:text-red-400">
+                    {PRICE_BEFORE_DISCOUNT["PETG-CF"].studentVndPerGram}đ/g
+                  </span>
+                  <span className={afterDiscountClasses}>{PRICING_RULES["PETG-CF"].studentVndPerGram}đ/g</span>
+                  <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    Sinh viên
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td className="px-4 py-3 font-medium text-zinc-800 dark:text-zinc-100">TPU</td>
+                <td className="px-4 py-3 font-medium text-zinc-900 dark:text-zinc-50">
+                  <span className="mr-2 text-red-600 line-through dark:text-red-400">
+                    {PRICE_BEFORE_DISCOUNT.TPU.normalVndPerGram}đ/g
+                  </span>
+                  <span>{tpu.normalVndPerGram}đ/g</span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="mr-2 text-red-600 line-through dark:text-red-400">
+                    {PRICE_BEFORE_DISCOUNT.TPU.studentVndPerGram}đ/g
+                  </span>
+                  <span className={afterDiscountClasses}>{PRICING_RULES.TPU.studentVndPerGram}đ/g</span>
                   <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                     Sinh viên
                   </span>

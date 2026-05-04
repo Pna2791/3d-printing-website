@@ -99,6 +99,86 @@ export function getDatabaseUrl(): string | undefined {
 }
 
 /**
+ * Server-only: Na 3D Slicer service (`POST /v1/slice`, `GET /v1/tasks/{id}`).
+ * No trailing slash.
+ */
+export function getSlicerApiBaseUrl(): string | null {
+  if (typeof window !== "undefined") {
+    throw new Error("SLICER_API_BASE_URL must not be read in the browser.");
+  }
+  const raw = process.env.SLICER_API_BASE_URL?.trim() ?? "";
+  if (!raw) return null;
+  return raw.replace(/\/+$/, "");
+}
+
+/**
+ * STL thumbnails via HTTP microservice (`thumb-service`, FastAPI).
+ * - `off`: never call the service.
+ * - `http`: require `STL2THUMB_SERVICE_URL`.
+ * - `auto`: call the service when `STL2THUMB_SERVICE_URL` is set; otherwise skip thumbnails.
+ * Legacy `native` / `docker` are treated as `auto`.
+ */
+export type Stl2ThumbMode = "auto" | "off" | "http";
+
+export function getStl2ThumbMode(): Stl2ThumbMode {
+  if (typeof window !== "undefined") {
+    throw new Error("STL2THUMB_MODE must not be read in the browser.");
+  }
+  const raw = (process.env.STL2THUMB_MODE ?? "auto").trim().toLowerCase();
+  if (raw === "off" || raw === "0" || raw === "false") return "off";
+  if (raw === "http") return "http";
+  if (raw === "native" || raw === "docker") return "auto";
+  return "auto";
+}
+
+/** Base URL of the thumbnail microservice (no trailing slash), e.g. `http://thumb-service:8887`. */
+export function getStl2ThumbServiceUrl(): string | null {
+  if (typeof window !== "undefined") {
+    throw new Error("STL2THUMB_SERVICE_URL must not be read in the browser.");
+  }
+  const raw = process.env.STL2THUMB_SERVICE_URL?.trim() ?? "";
+  if (!raw) return null;
+  return raw.replace(/\/+$/, "");
+}
+
+/** `grey` | `blue` | `emerald` — default `emerald` (Zinc/Emerald UI). */
+export function getStl2ThumbMaterialPreset(): "grey" | "blue" | "emerald" {
+  if (typeof window !== "undefined") {
+    throw new Error("STL2THUMB_MATERIAL_PRESET must not be read in the browser.");
+  }
+  const raw = (process.env.STL2THUMB_MATERIAL_PRESET ?? "emerald").trim().toLowerCase();
+  if (raw === "grey" || raw === "gray") return "grey";
+  if (raw === "blue") return "blue";
+  return "emerald";
+}
+
+export function getStl2ThumbThumbSize(): number {
+  if (typeof window !== "undefined") {
+    throw new Error("STL2THUMB_THUMB_SIZE must not be read in the browser.");
+  }
+  const n = Number.parseInt(process.env.STL2THUMB_THUMB_SIZE?.trim() ?? "768", 10);
+  if (!Number.isFinite(n) || n < 512) return 768;
+  return Math.min(n, 4096);
+}
+
+export function getStl2ThumbTimeoutMs(): number {
+  if (typeof window !== "undefined") {
+    throw new Error("STL2THUMB_TIMEOUT_MS must not be read in the browser.");
+  }
+  const n = Number.parseInt(process.env.STL2THUMB_TIMEOUT_MS?.trim() ?? "120000", 10);
+  if (!Number.isFinite(n) || n < 5000) return 120_000;
+  return Math.min(n, 600_000);
+}
+
+export function getStl2ThumbRecalcNormals(): boolean {
+  if (typeof window !== "undefined") {
+    throw new Error("STL2THUMB_RECALC_NORMALS must not be read in the browser.");
+  }
+  const v = process.env.STL2THUMB_RECALC_NORMALS?.trim().toLowerCase() ?? "";
+  return v === "1" || v === "true" || v === "yes";
+}
+
+/**
  * Compare runtime `NEXT_PUBLIC_SUPABASE_URL` with the value captured at `next build`
  * (`SUPABASE_PUBLIC_URL_AT_BUILD` via `next.config.ts`). Logs a warning if they differ.
  */

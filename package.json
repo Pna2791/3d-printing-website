@@ -14,16 +14,20 @@
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
+    "canvas-confetti": "^1.9.4",
+    "framer-motion": "^12.38.0",
     "lucide-react": "^1.14.0",
     "next": "15.5.15",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-dropzone": "^14.4.1",
     "recharts": "^2.15.0",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
