@@ -171,6 +171,9 @@ export type Database = {
           total_vnd: number;
           line_subtotal_vnd: number;
           floor_applied: boolean;
+          quote_asset_id: string | null;
+          stl_storage_path: string | null;
+          preview_image_url: string | null;
         };
         Insert: {
           id?: string;
@@ -193,6 +196,9 @@ export type Database = {
           total_vnd: number;
           line_subtotal_vnd: number;
           floor_applied?: boolean;
+          quote_asset_id?: string | null;
+          stl_storage_path?: string | null;
+          preview_image_url?: string | null;
         };
         Update: {
           id?: string;
@@ -215,6 +221,9 @@ export type Database = {
           total_vnd?: number;
           line_subtotal_vnd?: number;
           floor_applied?: boolean;
+          quote_asset_id?: string | null;
+          stl_storage_path?: string | null;
+          preview_image_url?: string | null;
         };
         Relationships: [];
       };

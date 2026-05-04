@@ -28,11 +28,15 @@ import {
 type SliceOkResponse = {
   ok: true;
   task_id: string;
+  quote_asset_id?: string;
   filename: string;
   filament_used_mm: number;
   estimated_print_time: string;
   model_dimensions: { x_mm: number; y_mm: number; z_mm: number };
   preview_image: string | null;
+  preview_image_url?: string | null;
+  stl_storage_path?: string | null;
+  storage?: { stl_saved?: boolean; preview_saved?: boolean };
   /** Alt text aligned with `quote_material` + filename (SEO). */
   preview_image_alt?: string;
   /** Server hint when `preview_image` is null (thumb microservice / env). */
@@ -57,6 +61,52 @@ type SliceErrResponse = {
   code?: string;
   error?: string;
 };
+
+type SliceStorageClientState = {
+  quote_asset_id: string | null;
+  stl_storage_path: string | null;
+  preview_image_url: string | null;
+  stl_saved: boolean;
+  preview_saved: boolean;
+};
+
+function QuoteStorageBadge({
+  isBusy,
+  stlSaved,
+  previewSaved,
+}: {
+  isBusy: boolean;
+  stlSaved: boolean;
+  previewSaved: boolean;
+}) {
+  if (isBusy) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-950/55 px-2 py-0.5 text-[11px] font-medium text-emerald-100/95">
+        <Loader2 className="h-3 w-3 animate-spin text-emerald-400" aria-hidden />
+        Đang xử lý…
+      </span>
+    );
+  }
+  if (stlSaved && previewSaved) {
+    return (
+      <span className="inline-flex shrink-0 items-center rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-200">
+        Đã lưu kho
+      </span>
+    );
+  }
+  if (stlSaved || previewSaved) {
+    return (
+      <span className="inline-flex shrink-0 items-center rounded-full border border-amber-500/35 bg-amber-950/45 px-2 py-0.5 text-[11px] font-medium text-amber-100/95">
+        Lưu một phần
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full border border-zinc-600 bg-zinc-900/90 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
+      Chưa đồng bộ kho
+    </span>
+  );
+}
 
 const vnd = new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -141,6 +191,7 @@ export function QuoteEstimatorClient() {
   const [modelScale, setModelScale] = useState(MODEL_SCALE_DEFAULT);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [isRescaling, setIsRescaling] = useState(false);
+  const [sliceStorage, setSliceStorage] = useState<SliceStorageClientState | null>(null);
   const lastSyncedScaleRef = useRef(MODEL_SCALE_DEFAULT);
 
   const onDrop = useCallback(async (accepted: File[]) => {
@@ -153,6 +204,7 @@ export function QuoteEstimatorClient() {
     setPreviewHint(null);
     setModelScale(MODEL_SCALE_DEFAULT);
     setSourceFile(null);
+    setSliceStorage(null);
     lastSyncedScaleRef.current = MODEL_SCALE_DEFAULT;
     setPendingFileName(file.name);
     setIsSlicing(true);
@@ -185,8 +237,16 @@ export function QuoteEstimatorClient() {
       setSourceFile(file);
       setPendingFileName(null);
       fireQuoteMetadataConfetti();
-      if (data.preview_image) {
-        setPreviewUrl(data.preview_image);
+      setSliceStorage({
+        quote_asset_id: typeof data.quote_asset_id === "string" ? data.quote_asset_id : null,
+        stl_storage_path: typeof data.stl_storage_path === "string" ? data.stl_storage_path : null,
+        preview_image_url: typeof data.preview_image_url === "string" ? data.preview_image_url : null,
+        stl_saved: Boolean(data.storage?.stl_saved),
+        preview_saved: Boolean(data.storage?.preview_saved),
+      });
+      const preferredPreview = data.preview_image_url || data.preview_image;
+      if (preferredPreview) {
+        setPreviewUrl(preferredPreview);
         setPreviewStatus("ready");
         setPreviewHint(null);
       } else {
@@ -244,6 +304,13 @@ export function QuoteEstimatorClient() {
               : null,
           );
           lastSyncedScaleRef.current = scale;
+          setSliceStorage({
+            quote_asset_id: typeof data.quote_asset_id === "string" ? data.quote_asset_id : null,
+            stl_storage_path: typeof data.stl_storage_path === "string" ? data.stl_storage_path : null,
+            preview_image_url: typeof data.preview_image_url === "string" ? data.preview_image_url : null,
+            stl_saved: Boolean(data.storage?.stl_saved),
+            preview_saved: Boolean(data.storage?.preview_saved),
+          });
         } catch (e) {
           if (e instanceof DOMException && e.name === "AbortError") return;
           setError(e instanceof Error ? e.message : "Lỗi mạng");
@@ -314,7 +381,7 @@ export function QuoteEstimatorClient() {
 
   const checkoutPayload = useMemo(() => {
     if (!metadata || !quoteTotals || !cost) return null;
-    return {
+    const base = {
       slicer_task_id: metadata.task_id,
       filename: metadata.filename,
       material,
@@ -326,7 +393,17 @@ export function QuoteEstimatorClient() {
       estimated_print_time: metadata.estimated_print_time,
       total_vnd: quoteTotals.totalVnd,
     };
-  }, [metadata, quoteTotals, cost, material, isStudent, modelScale]);
+    const s = sliceStorage;
+    if (s?.quote_asset_id && s.stl_storage_path && s.stl_saved) {
+      return {
+        ...base,
+        quote_asset_id: s.quote_asset_id,
+        stl_storage_path: s.stl_storage_path,
+        preview_image_url: s.preview_image_url ?? null,
+      };
+    }
+    return base;
+  }, [metadata, quoteTotals, cost, material, isStudent, modelScale, sliceStorage]);
 
   const promoOn = isStudentPromoActive();
 
@@ -355,6 +432,9 @@ export function QuoteEstimatorClient() {
   const showWorkspace = Boolean(pendingFileName || metadata);
   const showStatSkeletons = isSlicing || !metadata || isRescaling;
   const previewGenerating = isSlicing;
+  const storageBadgeBusy = Boolean(pendingFileName) || isSlicing || isRescaling;
+  const storageStSaved = sliceStorage?.stl_saved ?? false;
+  const storagePreviewSaved = sliceStorage?.preview_saved ?? false;
 
   const uploadMotion = { type: "spring" as const, stiffness: 420, damping: 32 };
 
@@ -382,11 +462,16 @@ export function QuoteEstimatorClient() {
                 })}
               >
                 <input {...getInputProps()} />
-                <div className="flex min-w-0 flex-1 items-center gap-2">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                   <Upload className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
-                  <span className="truncate text-sm font-medium text-zinc-200" title={displayFilename}>
+                  <span className="min-w-0 truncate text-sm font-medium text-zinc-200" title={displayFilename}>
                     {displayFilename}
                   </span>
+                  <QuoteStorageBadge
+                    isBusy={storageBadgeBusy}
+                    stlSaved={storageStSaved}
+                    previewSaved={storagePreviewSaved}
+                  />
                 </div>
                 <button
                   type="button"
@@ -526,7 +611,16 @@ export function QuoteEstimatorClient() {
               </p>
 
               <div>
-                <h2 className="text-lg font-semibold text-zinc-50">{displayFilename}</h2>
+                <div className="flex flex-wrap items-center gap-2 gap-y-2">
+                  <h2 className="min-w-0 flex-1 break-all text-lg font-semibold text-zinc-50 sm:break-words">
+                    {displayFilename}
+                  </h2>
+                  <QuoteStorageBadge
+                    isBusy={storageBadgeBusy}
+                    stlSaved={storageStSaved}
+                    previewSaved={storagePreviewSaved}
+                  />
+                </div>
                 <ul className="mt-4 grid gap-3 sm:grid-cols-2">
                   {showStatSkeletons ? (
                     <>

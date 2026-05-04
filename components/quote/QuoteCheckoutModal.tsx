@@ -17,6 +17,10 @@ export type QuoteCheckoutPayload = {
   filament_used_mm: number;
   estimated_print_time: string;
   total_vnd: number;
+  /** Gửi kèm khi đã lưu STL lên Supabase; URL preview có thể null nếu lần slice bỏ qua ảnh. */
+  quote_asset_id?: string;
+  stl_storage_path?: string;
+  preview_image_url?: string | null;
 };
 
 type QuoteCheckoutModalProps = {
