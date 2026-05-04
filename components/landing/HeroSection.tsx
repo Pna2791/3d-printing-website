@@ -69,7 +69,7 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
             Xem bảng giá
           </button>
           <a
-            href="/quote"
+            href="/bao-gia-in-3d"
             target="_blank"
             rel="noreferrer"
             onClick={() => fireGrandOpeningConfetti()}

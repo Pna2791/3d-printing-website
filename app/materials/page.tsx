@@ -58,7 +58,7 @@ export default function MaterialsGuidePage() {
           </p>
           <p className="mt-4">
             <Link
-              href="/quote"
+              href="/bao-gia-in-3d"
               className="text-sm font-semibold text-emerald-400 underline-offset-4 hover:text-emerald-300 hover:underline"
             >
               Đi tới báo giá STL →

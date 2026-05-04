@@ -38,7 +38,7 @@ export function fireGrandOpeningConfetti() {
   });
 }
 
-/** Nhẹ — khi báo giá nhận metadata slice thành công (trang /quote). */
+/** Nhẹ — khi báo giá nhận metadata slice thành công (trang báo giá). */
 export function fireQuoteMetadataConfetti() {
   if (typeof window === "undefined") return;
 

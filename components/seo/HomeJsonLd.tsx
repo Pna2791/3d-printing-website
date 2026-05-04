@@ -1,6 +1,6 @@
 import { OFFLINE_ORDER_CONTACT } from "@/lib/config";
 import { PRICING_RULES } from "@/lib/pricing";
-import { getSiteUrl, SITE_BRAND } from "@/lib/seo";
+import { getQuoteCanonicalUrl, getSiteUrl, SITE_BRAND } from "@/lib/seo";
 
 const LOCAL_ID = `${getSiteUrl()}#localbusiness`;
 const SERVICE_ID = `${getSiteUrl()}#service-print-3d`;
@@ -63,7 +63,7 @@ export function HomeJsonLd({ email }: HomeJsonLdProps) {
       "@type": "Offer",
       priceCurrency: "VND",
       description: `Giá tham chiếu từ khoảng ${petgLow.toLocaleString("vi-VN")} ₫/g (PETG); xem bảng giá đầy đủ trên website.`,
-      url: `${url}/quote`,
+      url: getQuoteCanonicalUrl(),
     },
     category: "In 3D FDM — PLA, PETG, PETG-CF, TPU; ABS & nhựa kỹ thuật (buồng kín)",
   };

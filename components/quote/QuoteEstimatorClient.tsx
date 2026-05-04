@@ -2,10 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { useDropzone } from "react-dropzone";
 import { Box, Clock, Info, Loader2, Minus, Plus, Ruler, Scaling, Upload, Weight } from "lucide-react";
 
 import { MaterialOptionWithTooltip } from "@/components/quote/MaterialOptionWithTooltip";
+import { QuoteCheckoutModal } from "@/components/quote/QuoteCheckoutModal";
 import { fireQuoteMetadataConfetti } from "@/lib/confetti";
 import { quoteStlPreviewImageAlt } from "@/lib/quote-stl-preview-alt";
 import { FEATURES, OFFLINE_ORDER_CONTACT } from "@/lib/config";
@@ -123,6 +126,8 @@ function PriceBlockSkeleton() {
 }
 
 export function QuoteEstimatorClient() {
+  const pathname = usePathname();
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [material, setMaterial] = useState<SupportedMaterial>("PLA");
   const [isStudent, setIsStudent] = useState(false);
   const [quantity, setQuantity] = useState(DEFAULT_QUANTITY);
@@ -255,14 +260,6 @@ export function QuoteEstimatorClient() {
     };
   }, [modelScale, sourceFile]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { "model/stl": [".stl"], "application/sla": [".stl"] },
-    maxFiles: 1,
-    disabled: isSlicing || isRescaling,
-    multiple: false,
-  });
-
   const cost = useMemo(() => {
     if (!metadata) return null;
     return estimateCostFromSlicer(metadata.filament_used_mm, material, isStudent);
@@ -278,6 +275,18 @@ export function QuoteEstimatorClient() {
     const floor = applyMinimumOrderFloor(lineSubtotal, isStudent);
     return { qty, lineSubtotal, ...floor };
   }, [cost, quantity, isStudent]);
+
+  /** Đã có báo giá đầy đủ và không đang chờ file mới (pending) — hiển thị thanh tải file gọn. */
+  const showCompactUploadStrip = Boolean(metadata && cost && quoteTotals && !pendingFileName);
+
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
+    onDrop,
+    accept: { "model/stl": [".stl"], "application/sla": [".stl"] },
+    maxFiles: 1,
+    disabled: isSlicing || isRescaling,
+    multiple: false,
+    noClick: showCompactUploadStrip,
+  });
 
   const totalWeightGrams = cost ? unitWeightGramsCeil * (quoteTotals?.qty ?? 1) : 0;
 
@@ -300,6 +309,24 @@ export function QuoteEstimatorClient() {
     });
     return `/?${q.toString()}#dat-hang`;
   }, [quoteTotals, cost, unitWeightGramsCeil, material, isStudent, modelScale]);
+
+  const showQuoteCheckout = pathname === "/bao-gia-in-3d" && FEATURES.QUOTE_CHECKOUT_ENABLED;
+
+  const checkoutPayload = useMemo(() => {
+    if (!metadata || !quoteTotals || !cost) return null;
+    return {
+      slicer_task_id: metadata.task_id,
+      filename: metadata.filename,
+      material,
+      is_student: isStudent,
+      quantity: quoteTotals.qty,
+      model_scale: clampUniformModelScale(modelScale),
+      model_dimensions: metadata.model_dimensions,
+      filament_used_mm: metadata.filament_used_mm,
+      estimated_print_time: metadata.estimated_print_time,
+      total_vnd: quoteTotals.totalVnd,
+    };
+  }, [metadata, quoteTotals, cost, material, isStudent, modelScale]);
 
   const promoOn = isStudentPromoActive();
 
@@ -329,29 +356,88 @@ export function QuoteEstimatorClient() {
   const showStatSkeletons = isSlicing || !metadata || isRescaling;
   const previewGenerating = isSlicing;
 
+  const uploadMotion = { type: "spring" as const, stiffness: 420, damping: 32 };
+
   return (
-    <div className="space-y-8">
-      <div
-        {...getRootProps()}
-        className={[
-          "relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-14 transition",
-          isDragActive
-            ? "border-emerald-500 bg-emerald-500/10"
-            : "border-zinc-600 bg-zinc-950/50 hover:border-emerald-500/70 hover:bg-zinc-900/60",
-          isSlicing ? "pointer-events-none opacity-60" : "",
-        ].join(" ")}
-      >
-        <input {...getInputProps()} />
-        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
-          <Upload className="h-7 w-7" aria-hidden />
-        </div>
-        <p className="mt-4 text-center text-sm font-medium text-zinc-100">
-          {isDragActive ? "Thả file STL vào đây" : "Kéo thả file STL hoặc bấm để chọn"}
-        </p>
-        <p className="mt-1 text-center text-xs text-zinc-500">
-          Tối đa 50 MB · chỉ định dạng .stl
-        </p>
-      </div>
+    <LayoutGroup>
+      <div className="space-y-8">
+        <AnimatePresence mode="wait" initial={false}>
+          {showCompactUploadStrip ? (
+            <motion.div
+              key="upload-compact"
+              layout
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={uploadMotion}
+              className="w-full"
+            >
+              <div
+                {...getRootProps({
+                  className: [
+                    "flex cursor-default flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-500/40 bg-zinc-800 px-4 py-2.5 transition",
+                    isDragActive ? "border-emerald-400 bg-emerald-950/25 ring-1 ring-emerald-500/30" : "",
+                    isSlicing || isRescaling ? "pointer-events-none opacity-50" : "",
+                  ].join(" "),
+                })}
+              >
+                <input {...getInputProps()} />
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <Upload className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
+                  <span className="truncate text-sm font-medium text-zinc-200" title={displayFilename}>
+                    {displayFilename}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void open();
+                  }}
+                  disabled={isSlicing || isRescaling}
+                  className="shrink-0 rounded-lg border border-emerald-500/50 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-emerald-200 transition hover:border-emerald-400 hover:bg-zinc-800 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Báo giá mẫu khác
+                </button>
+              </div>
+              <p className="mt-1.5 text-center text-[11px] text-zinc-500">
+                Kéo thả STL vào khung trên hoặc bấm &quot;Báo giá mẫu khác&quot; · tối đa 50 MB
+              </p>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="upload-large"
+              layout
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={uploadMotion}
+              className="w-full"
+            >
+              <div
+                {...getRootProps()}
+                className={[
+                  "relative flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-14 transition",
+                  isDragActive
+                    ? "border-emerald-500 bg-emerald-500/10"
+                    : "border-zinc-600 bg-zinc-950/50 hover:border-emerald-500/70 hover:bg-zinc-900/60",
+                  isSlicing ? "pointer-events-none opacity-60" : "",
+                ].join(" ")}
+              >
+                <input {...getInputProps()} />
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
+                  <Upload className="h-7 w-7" aria-hidden />
+                </div>
+                <p className="mt-4 text-center text-sm font-medium text-zinc-100">
+                  {isDragActive ? "Thả file STL vào đây" : "Kéo thả file STL hoặc bấm để chọn"}
+                </p>
+                <p className="mt-1 text-center text-xs text-zinc-500">
+                  Tối đa 50 MB · chỉ định dạng .stl
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       {error ? (
         <div
@@ -363,7 +449,11 @@ export function QuoteEstimatorClient() {
       ) : null}
 
       {showWorkspace ? (
-        <section className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl shadow-black/30 sm:p-8">
+        <motion.section
+          layout
+          transition={uploadMotion}
+          className="rounded-3xl border border-zinc-800 bg-zinc-950 p-5 shadow-xl shadow-black/30 sm:p-8"
+        >
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,300px)]">
             <div className="space-y-6">
               {previewUrl ? (
@@ -671,12 +761,23 @@ export function QuoteEstimatorClient() {
               )}
 
               <div className="space-y-2">
-                <Link
-                  href={orderLinkHref}
-                  className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-400"
-                >
-                  Đặt in mẫu này
-                </Link>
+                {showQuoteCheckout && cost && quoteTotals ? (
+                  <button
+                    type="button"
+                    disabled={isRescaling}
+                    onClick={() => setCheckoutOpen(true)}
+                    className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-zinc-950 shadow-sm shadow-emerald-500/25 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Đặt in ngay
+                  </button>
+                ) : (
+                  <Link
+                    href={orderLinkHref}
+                    className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-400"
+                  >
+                    Đặt in mẫu này
+                  </Link>
+                )}
                 {!FEATURES.ORDER_ENABLED || !FEATURES.AUTH_ENABLED ? (
                   <div className="space-y-2 text-center text-xs text-zinc-400">
                     <p>Đặt hàng trực tuyến đang tắt — vui lòng liên hệ:</p>
@@ -727,8 +828,15 @@ export function QuoteEstimatorClient() {
             </span>
             <span className="text-xs font-medium text-zinc-400">Xưởng đang hoạt động</span>
           </footer>
-        </section>
+        </motion.section>
       ) : null}
-    </div>
+
+      <QuoteCheckoutModal
+        open={checkoutOpen}
+        onClose={() => setCheckoutOpen(false)}
+        quotePayload={checkoutPayload}
+      />
+      </div>
+    </LayoutGroup>
   );
 }
