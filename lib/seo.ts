@@ -29,6 +29,7 @@ export function getQuoteCanonicalUrl(): string {
 export const SITE_BRAND = "NA 3D SHOP";
 
 export const SEO_KEYWORDS = [
+  "In 3D giá rẻ HCM",
   "In 3D giá rẻ",
   "Ship COD toàn quốc",
   "In 3D toàn quốc",
@@ -40,6 +41,7 @@ export const SEO_KEYWORDS = [
   "Máy in buồng kín",
   "Nhựa kỹ thuật",
   "In 3D Thủ Đức",
+  "In 3D Dĩ An",
   "In 3D Làng Đại Học",
   "In 3D TP.HCM",
   "in FDM",
@@ -56,9 +58,9 @@ export function absoluteOgImageUrl(): string {
 /** Root defaults merged with route-level `export const metadata`. */
 export function rootLayoutMetadata(): Metadata {
   const url = getSiteUrl();
-  const titleDefault = `In 3D Giá Rẻ Toàn Quốc | Ưu Đãi Sinh Viên | ${SITE_BRAND}`;
+  const titleDefault = `In 3D giá rẻ HCM (Thủ Đức) | Báo giá online | ${SITE_BRAND}`;
   const description =
-    "Dịch vụ in 3D chuyên nghiệp, giá rẻ cho sinh viên. Hỗ trợ ship toàn quốc, ưu đãi lớn tại TP.HCM. Chuyên in ABS, PLA, PETG-CF với máy in buồng kín hiện đại.";
+    "Dịch vụ in 3D giá rẻ HCM, Thủ Đức cho sinh viên & kỹ sư. Báo giá online lấy liền, ship COD toàn quốc. Chuyên in ABS buồng kín, PLA, PETG-CF.";
 
   return {
     metadataBase: new URL(url),

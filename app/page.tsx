@@ -12,9 +12,9 @@ import { getWorkshopInfo } from "@/services/workshopService";
 /** Always read Supabase-backed data at request time (runtime env in Docker / production). */
 export const dynamic = "force-dynamic";
 
-const homeTitle = `In 3D Giá Rẻ Toàn Quốc | Ưu Đãi Sinh Viên | ${SITE_BRAND}`;
+const homeTitle = `In 3D giá rẻ HCM (Thủ Đức) | Báo giá online | ${SITE_BRAND}`;
 const homeDescription =
-  "Dịch vụ in 3D chuyên nghiệp, giá rẻ cho sinh viên. Hỗ trợ ship toàn quốc, ưu đãi lớn tại TP.HCM. Chuyên in ABS, PLA, PETG-CF với máy in buồng kín hiện đại.";
+  "Dịch vụ in 3D giá rẻ HCM, Thủ Đức cho sinh viên & kỹ sư. Báo giá online lấy liền, ship COD toàn quốc. Chuyên in ABS buồng kín, PLA, PETG-CF.";
 
 export const metadata: Metadata = {
   title: { absolute: homeTitle },
@@ -47,7 +47,7 @@ async function getShowcaseImagesFromPublic() {
 
     return imageNames.map((name) => ({
       src: `/printed/${name}`,
-      alt: `Mẫu in 3D ${name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")}`,
+      alt: `Mẫu in 3D giá rẻ HCM ${name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")}`,
     }));
   } catch {
     return [];

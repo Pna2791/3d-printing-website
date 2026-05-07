@@ -22,11 +22,11 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
           Ship toàn quốc — Ưu đãi lớn cho sinh viên
         </p>
         <h1 className="mt-5 text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-5xl">
-          In 3D giá rẻ — NA 3D SHOP giao hàng COD cả nước
+          In 3D giá rẻ HCM (Thủ Đức) — NA 3D SHOP giao hàng COD toàn quốc
         </h1>
         <p className="mt-4 text-lg text-zinc-600 dark:text-zinc-300">
-          Xưởng tại Làng Đại Học, TP.HCM — giá minh bạch, ưu đãi đặc biệt cho sinh viên và khách nội thành; tư vấn
-          tận tình từng đơn.
+          Xưởng tại khu vực Làng Đại Học (Thủ Đức), liền kề Dĩ An — giá minh bạch, ưu đãi đặc biệt cho sinh viên
+          và khách nội thành; tư vấn tận tình từng đơn.
         </p>
 
         {promo ? (
@@ -66,7 +66,7 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
             onClick={onOpenPricing}
             className="rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
           >
-            Xem bảng giá
+            Báo giá in 3D lấy liền (HCM)
           </button>
           <a
             href="/bao-gia-in-3d"
@@ -75,7 +75,7 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
             onClick={() => fireGrandOpeningConfetti()}
             className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
           >
-            Báo giá file in
+            Công cụ báo giá file STL
           </a>
         </div>
       </div>
