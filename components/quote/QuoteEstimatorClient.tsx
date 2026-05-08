@@ -5,8 +5,21 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { useDropzone } from "react-dropzone";
-import { Box, Clock, Info, Loader2, Minus, Plus, Ruler, Scaling, Upload, Weight } from "lucide-react";
+import {
+  Box,
+  Clock,
+  Info,
+  Loader2,
+  Minus,
+  Plus,
+  Ruler,
+  Scaling,
+  Ship,
+  Upload,
+  Weight,
+} from "lucide-react";
 
+import { QuoteBulkRfqModal } from "@/components/quote/QuoteBulkRfqModal";
 import { MaterialOptionWithTooltip } from "@/components/quote/MaterialOptionWithTooltip";
 import { QuoteCheckoutModal } from "@/components/quote/QuoteCheckoutModal";
 import { fireQuoteMetadataConfetti } from "@/lib/confetti";
@@ -24,6 +37,14 @@ import {
   QUOTE_MATERIAL_OPTIONS,
   type SupportedMaterial,
 } from "@/lib/pricing";
+import {
+  applyBulkPctToSubtotal,
+  bulkTierForQty,
+  estimateIntlShippingUsd,
+  requiresRfqForm,
+  SHIPPING_REGION_LABEL_VI,
+  type ShippingRegion,
+} from "@/lib/quote-international";
 
 type SliceOkResponse = {
   ok: true;
@@ -116,17 +137,58 @@ const vnd = new Intl.NumberFormat("vi-VN", {
 
 const vndPlain = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
 
+const usdMoney = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+
 function formatVndPlain(amount: number): string {
   return `${vndPlain.format(Math.round(amount))} đ`;
 }
 
-/** Định dạng `XxYxZ mm` — làm tròn lên số nguyên mm mỗi trục (vd 61.389 → 62). */
-function formatDimensionsXyzMm(x: number, y: number, z: number): string {
+function vndToUsd(vnd: number, vndPerUsd: number): number {
+  const rate = Number.isFinite(vndPerUsd) && vndPerUsd > 0 ? vndPerUsd : 25500;
+  return vnd / rate;
+}
+
+function renderMoneyDual(
+  vndAmount: number,
+  currency: "VND" | "USD",
+  vndPerUsd: number,
+): { primary: string; secondary: string | null } {
+  const v = Math.round(vndAmount);
+  if (currency === "VND") {
+    const us = vndToUsd(v, vndPerUsd);
+    return { primary: vnd.format(v), secondary: `≈ ${usdMoney.format(us)}` };
+  }
+  return {
+    primary: usdMoney.format(vndToUsd(v, vndPerUsd)),
+    secondary: `${formatVndPlain(v)}`,
+  };
+}
+
+type LengthDisplay = "metric_mm" | "imperial_in";
+
+/** Bounding box display: metric (ceil mm) or imperial (1 decimal inches per axis). */
+function formatDimensionsXYZ(x: number, y: number, z: number, mode: LengthDisplay): string {
   if (![x, y, z].every((v) => Number.isFinite(v))) return "—";
-  const a = Math.ceil(x);
-  const b = Math.ceil(y);
-  const c = Math.ceil(z);
-  return `${a}x${b}x${c} mm`;
+  if (mode === "metric_mm") {
+    const a = Math.ceil(x);
+    const b = Math.ceil(y);
+    const c = Math.ceil(z);
+    return `${a}×${b}×${c} mm`;
+  }
+  const toIn = (mm: number) => Math.round((mm / 25.4) * 10) / 10;
+  return `${toIn(x)}×${toIn(y)}×${toIn(z)} in`;
+}
+
+function formatFilamentLength(mm: number | null | undefined, mode: LengthDisplay): string {
+  const m = typeof mm === "number" && Number.isFinite(mm) ? mm : NaN;
+  if (!Number.isFinite(m)) return "—";
+  if (mode === "metric_mm") return `${m.toFixed(0)} mm`;
+  const inches = m / 25.4;
+  return `${inches.toFixed(1)} in (${m.toFixed(0)} mm)`;
 }
 
 const MAX_QUANTITY = 9999;
@@ -193,6 +255,29 @@ export function QuoteEstimatorClient() {
   const [isRescaling, setIsRescaling] = useState(false);
   const [sliceStorage, setSliceStorage] = useState<SliceStorageClientState | null>(null);
   const lastSyncedScaleRef = useRef(MODEL_SCALE_DEFAULT);
+  const [displayCurrency, setDisplayCurrency] = useState<"VND" | "USD">("VND");
+  const [lengthDisplay, setLengthDisplay] = useState<LengthDisplay>("metric_mm");
+  const [shippingRegion, setShippingRegion] = useState<ShippingRegion>("VN");
+  const [vndPerUsd, setVndPerUsd] = useState(25500);
+  const [exchangeSource, setExchangeSource] = useState<string | null>(null);
+  const [rfqOpen, setRfqOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/exchange-rate")
+      .then((r) => r.json())
+      .then((data: { vndPerUsd?: number; source?: string }) => {
+        if (cancelled) return;
+        if (typeof data.vndPerUsd === "number" && Number.isFinite(data.vndPerUsd) && data.vndPerUsd > 0) {
+          setVndPerUsd(Math.round(data.vndPerUsd));
+          setExchangeSource(typeof data.source === "string" ? data.source : null);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onDrop = useCallback(async (accepted: File[]) => {
     const file = accepted[0];
@@ -339,8 +424,11 @@ export function QuoteEstimatorClient() {
     const q0 = Number.isFinite(quantity) && quantity >= 1 ? quantity : DEFAULT_QUANTITY;
     const qty = Math.min(MAX_QUANTITY, Math.max(1, Math.floor(q0)));
     const lineSubtotal = Math.round(cost.totalVnd * qty);
-    const floor = applyMinimumOrderFloor(lineSubtotal, isStudent);
-    return { qty, lineSubtotal, ...floor };
+    const bulkTier = bulkTierForQty(qty);
+    const bulkAdjustedSubtotal =
+      bulkTier.kind === "percent" ? applyBulkPctToSubtotal(lineSubtotal, bulkTier) : lineSubtotal;
+    const floor = applyMinimumOrderFloor(bulkAdjustedSubtotal, isStudent);
+    return { qty, lineSubtotal, bulkTier, bulkAdjustedSubtotal, ...floor };
   }, [cost, quantity, isStudent]);
 
   /** Đã có báo giá đầy đủ và không đang chờ file mới (pending) — hiển thị thanh tải file gọn. */
@@ -356,6 +444,11 @@ export function QuoteEstimatorClient() {
   });
 
   const totalWeightGrams = cost ? unitWeightGramsCeil * (quoteTotals?.qty ?? 1) : 0;
+
+  const intlFreightUsd = useMemo(() => {
+    if (!cost || shippingRegion === "VN") return null;
+    return estimateIntlShippingUsd(totalWeightGrams, shippingRegion);
+  }, [cost, shippingRegion, totalWeightGrams]);
 
   const floorExplanation = useMemo(() => {
     if (!quoteTotals?.floorApplied) return null;
@@ -377,7 +470,10 @@ export function QuoteEstimatorClient() {
     return `/?${q.toString()}#dat-hang`;
   }, [quoteTotals, cost, unitWeightGramsCeil, material, isStudent, modelScale]);
 
-  const showQuoteCheckout = pathname === "/bao-gia-in-3d" && FEATURES.QUOTE_CHECKOUT_ENABLED;
+  const showQuoteCheckout =
+    (pathname === "/bao-gia-in-3d" || pathname === "/en/bao-gia-in-3d") &&
+    FEATURES.QUOTE_CHECKOUT_ENABLED &&
+    Boolean(quoteTotals && !requiresRfqForm(quoteTotals.qty));
 
   const checkoutPayload = useMemo(() => {
     if (!metadata || !quoteTotals || !cost) return null;
@@ -406,6 +502,25 @@ export function QuoteEstimatorClient() {
   }, [metadata, quoteTotals, cost, material, isStudent, modelScale, sliceStorage]);
 
   const promoOn = isStudentPromoActive();
+
+  const bulkExplanation = useMemo(() => {
+    const tier = quoteTotals?.bulkTier;
+    if (!tier) return null;
+    if (tier.kind === "percent") return tier.labelVi;
+    if (tier.kind === "manual_quote") return tier.labelVi;
+    return null;
+  }, [quoteTotals?.bulkTier]);
+
+  const quotePriceLines = useMemo(() => {
+    if (!quoteTotals) return null;
+    const total = renderMoneyDual(quoteTotals.totalVnd, displayCurrency, vndPerUsd);
+    const afterBulkSame =
+      quoteTotals.bulkTier.kind === "percent" && quoteTotals.lineSubtotal !== quoteTotals.bulkAdjustedSubtotal;
+    const afterBulk = afterBulkSame
+      ? renderMoneyDual(quoteTotals.bulkAdjustedSubtotal, displayCurrency, vndPerUsd)
+      : null;
+    return { total, afterBulk };
+  }, [quoteTotals, displayCurrency, vndPerUsd]);
 
   const onPreviewImageError = useCallback(() => {
     setPreviewUrl(null);
@@ -441,6 +556,57 @@ export function QuoteEstimatorClient() {
   return (
     <LayoutGroup>
       <div className="space-y-8">
+        <div className="flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/85 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Hiển thị</span>
+            <select
+              value={displayCurrency}
+              aria-label="Đơn vị tiền"
+              onChange={(e) => setDisplayCurrency(e.target.value === "USD" ? "USD" : "VND")}
+              className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/35"
+            >
+              <option value="VND">VNĐ</option>
+              <option value="USD">USD (ước tính)</option>
+            </select>
+            <select
+              value={lengthDisplay}
+              aria-label="Đơn vị chiều dài"
+              onChange={(e) =>
+                setLengthDisplay(e.target.value === "imperial_in" ? "imperial_in" : "metric_mm")
+              }
+              className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/35"
+            >
+              <option value="metric_mm">Mm (metric)</option>
+              <option value="imperial_in">Inch (US)</option>
+            </select>
+          </div>
+          <div className="flex min-w-[220px] flex-1 flex-wrap items-center gap-2 sm:justify-end">
+            <Ship className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
+            <label className="flex flex-1 items-center gap-2 text-xs text-zinc-400 sm:flex-none">
+              <span className="whitespace-nowrap font-semibold text-zinc-300">Freight estimate</span>
+              <select
+                value={shippingRegion}
+                aria-label="Khu vực nhận hàng quốc tế"
+                onChange={(e) => setShippingRegion(e.target.value as ShippingRegion)}
+                className="mt-1 w-full min-w-[12rem] rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/35 sm:mt-0"
+              >
+                {(Object.keys(SHIPPING_REGION_LABEL_VI) as ShippingRegion[]).map((k) => (
+                  <option key={k} value={k}>
+                    {SHIPPING_REGION_LABEL_VI[k]}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {displayCurrency === "USD" && exchangeSource ? (
+            <p className="w-full text-[11px] leading-snug text-zinc-600">
+              Tỷ giá tham chiếu USD từ{" "}
+              <span className="font-mono text-emerald-500/80">{exchangeSource}</span> (~{vndPerUsd.toLocaleString("vi-VN")}{" "}
+              ₫/USD) — chỉ mang tính minh họa.
+            </p>
+          ) : null}
+        </div>
+
         <AnimatePresence mode="wait" initial={false}>
           {showCompactUploadStrip ? (
             <motion.div
@@ -517,7 +683,7 @@ export function QuoteEstimatorClient() {
                   {isDragActive ? "Thả file STL vào đây" : "Kéo thả file STL hoặc bấm để chọn"}
                 </p>
                 <p className="mt-1 text-center text-xs text-zinc-500">
-                  Tối đa 50 MB · chỉ định dạng .stl
+                  Tối đa 50 MB · chỉ định dạng .stl · hệ thống sẽ tự slice và ước tính giá
                 </p>
               </div>
             </motion.div>
@@ -635,13 +801,14 @@ export function QuoteEstimatorClient() {
                           <Ruler className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Kích thước (XYZ)
+                              Kích thước (XYZ) {lengthDisplay === "imperial_in" ? "· in" : "· mm"}
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
-                              {formatDimensionsXyzMm(
+                              {formatDimensionsXYZ(
                                 metadata.model_dimensions.x_mm,
                                 metadata.model_dimensions.y_mm,
                                 metadata.model_dimensions.z_mm,
+                                lengthDisplay,
                               )}
                             </p>
                           </div>
@@ -664,9 +831,7 @@ export function QuoteEstimatorClient() {
                               Độ dài nhựa đùn (1 mẫu)
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
-                              {Number.isFinite(metadata.filament_used_mm)
-                                ? `${metadata.filament_used_mm.toFixed(0)} mm`
-                                : "—"}
+                              {formatFilamentLength(metadata.filament_used_mm, lengthDisplay)}
                             </p>
                           </div>
                         </li>
@@ -688,6 +853,33 @@ export function QuoteEstimatorClient() {
             </div>
 
             <aside className="space-y-6 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-6">
+              <div className="rounded-xl border border-zinc-700/80 bg-zinc-950/40 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-400/90">
+                  Giảm giá số lượng (B2B)
+                </p>
+                <ul className="mt-2 space-y-1 text-xs leading-relaxed text-zinc-400">
+                  <li>
+                    <span className="tabular-nums font-medium text-zinc-200">10–50</span> mắt nhắt: −5%
+                  </li>
+                  <li>
+                    <span className="tabular-nums font-medium text-zinc-200">51–200</span> mắt nhắt: −15%
+                  </li>
+                  <li>
+                    Trên <span className="tabular-nums font-medium text-zinc-200">200</span> mắt nhắt: liên hệ báo giá
+                    chính thức
+                  </li>
+                  <li>
+                    Trên <span className="tabular-nums font-medium text-zinc-200">500</span> mắt nhắt: RFQ + tài liệu
+                    kỹ thuật
+                  </li>
+                </ul>
+              </div>
+              <p className="text-xs leading-relaxed text-zinc-400">
+                Mẹo nhanh: chọn{" "}
+                <span className="font-semibold text-zinc-200">Sinh viên</span> để xem giá ưu đãi; chọn nhựa kỹ thuật
+                như <span className="font-semibold text-zinc-200">PETG-CF</span> khi cần chi tiết chịu lực/nhiệt (
+                <span className="font-semibold text-zinc-200">máy buồng kín</span>).
+              </p>
               {metadata ? (
                 <div>
                   <div className="flex items-center gap-2">
@@ -826,11 +1018,51 @@ export function QuoteEstimatorClient() {
                     Ước tính giá in (Tổng)
                   </p>
                   <p className="mt-1 text-2xl font-bold tracking-tight text-emerald-50">
-                    {vnd.format(quoteTotals.totalVnd)}
+                    {quotePriceLines?.total.primary ?? vnd.format(quoteTotals.totalVnd)}
                   </p>
+                  {quotePriceLines?.total.secondary ? (
+                    <p className="mt-1 text-xs tabular-nums text-emerald-100/70">
+                      {quotePriceLines.total.secondary}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-sm font-medium tabular-nums text-emerald-100/85">
                     {formatVndPlain(cost.totalVnd)} × {quoteTotals.qty} = {formatVndPlain(quoteTotals.lineSubtotal)}
                   </p>
+                  {quoteTotals.bulkTier.kind === "percent" && quoteTotals.lineSubtotal !== quoteTotals.bulkAdjustedSubtotal ? (
+                    <p className="mt-1 text-xs text-emerald-200/85">
+                      Sau giảm số lượng ({quoteTotals.bulkTier.labelVi}):{" "}
+                      <span className="font-semibold tabular-nums">
+                        {quotePriceLines?.afterBulk?.primary ?? formatVndPlain(quoteTotals.bulkAdjustedSubtotal)}
+                      </span>
+                    </p>
+                  ) : null}
+                  {quoteTotals.bulkTier.kind === "manual_quote" && bulkExplanation ? (
+                    <p className="mt-2 flex gap-1.5 rounded-lg border border-amber-500/25 bg-amber-950/30 px-2.5 py-2 text-xs leading-snug text-amber-100/90">
+                      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400/80" aria-hidden />
+                      <span>{bulkExplanation}</span>
+                    </p>
+                  ) : null}
+                  {intlFreightUsd != null ? (
+                    <p className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-zinc-300">
+                      <Ship className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400/80" aria-hidden />
+                      <span>
+                        Phí vận chuyển quốc tế (ước tính, không gồm thuế HQ):{" "}
+                        <strong className="tabular-nums text-zinc-100">
+                          {usdMoney.format(intlFreightUsd)}
+                        </strong>
+                        {displayCurrency === "VND" ? (
+                          <>
+                            {" "}
+                            <span className="text-zinc-500">
+                              ≈ {formatVndPlain(Math.round(intlFreightUsd * vndPerUsd))}
+                            </span>
+                          </>
+                        ) : null}
+                      </span>
+                    </p>
+                  ) : shippingRegion !== "VN" ? (
+                    <p className="mt-2 text-xs text-zinc-500">Nhập file để ước tính khối lượng cho phí quốc tế.</p>
+                  ) : null}
                   {floorExplanation ? (
                     <p
                       className="mt-2 flex gap-1.5 text-xs leading-snug text-zinc-400"
@@ -855,7 +1087,15 @@ export function QuoteEstimatorClient() {
               )}
 
               <div className="space-y-2">
-                {showQuoteCheckout && cost && quoteTotals ? (
+                {quoteTotals && requiresRfqForm(quoteTotals.qty) ? (
+                  <button
+                    type="button"
+                    className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-zinc-950 shadow-sm shadow-emerald-500/25 transition hover:bg-emerald-400"
+                    onClick={() => setRfqOpen(true)}
+                  >
+                    Gửi RFQ (trên 500 mắt nhắt)
+                  </button>
+                ) : showQuoteCheckout && cost && quoteTotals ? (
                   <button
                     type="button"
                     disabled={isRescaling}
@@ -864,14 +1104,14 @@ export function QuoteEstimatorClient() {
                   >
                     Đặt in ngay
                   </button>
-                ) : (
+                ) : quoteTotals ? (
                   <Link
                     href={orderLinkHref}
                     className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-400"
                   >
                     Đặt in mẫu này
                   </Link>
-                )}
+                ) : null}
                 {!FEATURES.ORDER_ENABLED || !FEATURES.AUTH_ENABLED ? (
                   <div className="space-y-2 text-center text-xs text-zinc-400">
                     <p>Đặt hàng trực tuyến đang tắt — vui lòng liên hệ:</p>
@@ -929,6 +1169,11 @@ export function QuoteEstimatorClient() {
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         quotePayload={checkoutPayload}
+      />
+      <QuoteBulkRfqModal
+        open={rfqOpen}
+        onClose={() => setRfqOpen(false)}
+        defaultQuantity={quoteTotals && quoteTotals.qty > 500 ? quoteTotals.qty : 501}
       />
       </div>
     </LayoutGroup>

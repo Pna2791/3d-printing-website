@@ -227,6 +227,42 @@ export type Database = {
         };
         Relationships: [];
       };
+      bulk_rfq_requests: {
+        Row: {
+          id: string;
+          created_at: string;
+          contact_name: string;
+          email: string;
+          phone: string;
+          company: string;
+          quantity_estimate: number;
+          technical_requirements: string;
+          attachment_paths: string[];
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          contact_name: string;
+          email: string;
+          phone?: string;
+          company?: string;
+          quantity_estimate: number;
+          technical_requirements?: string;
+          attachment_paths?: string[];
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          contact_name?: string;
+          email?: string;
+          phone?: string;
+          company?: string;
+          quantity_estimate?: number;
+          technical_requirements?: string;
+          attachment_paths?: string[];
+        };
+        Relationships: [];
+      };
       orders: {
         Row: {
           id: string;

@@ -1,11 +1,23 @@
 import { type NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import createIntlMiddleware from "next-intl/middleware";
 
 import { trackPageViewIfEligible } from "@/lib/analytics/middleware-track";
+import { FEATURES } from "@/lib/config";
 import { getAdminAnalyticsSecret } from "@/lib/env";
 import { updateSession } from "@/lib/supabase/middleware";
 
+const intlMiddleware = createIntlMiddleware({
+  locales: ["vi", "en"],
+  defaultLocale: "vi",
+  localePrefix: "as-needed",
+});
+
 export async function middleware(request: NextRequest) {
+  const intlResponse = intlMiddleware(request);
+  // If next-intl wants to redirect (e.g. add/remove locale prefix), return early.
+  if (intlResponse.status !== 200) return intlResponse;
+
   const pathname = request.nextUrl.pathname;
   if (pathname.startsWith("/admin")) {
     const loginPath = "/admin/login";
@@ -21,9 +33,18 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const response = await updateSession(request);
   await trackPageViewIfEligible(request);
-  return response;
+
+  // Preserve next-intl rewrites/cookies — `updateSession` alone returns plain `next()` when auth is off.
+  if (!FEATURES.AUTH_ENABLED) {
+    return intlResponse;
+  }
+
+  const sessionResponse = await updateSession(request);
+  intlResponse.cookies.getAll().forEach((c) => {
+    sessionResponse.cookies.set(c.name, c.value);
+  });
+  return sessionResponse;
 }
 
 export const config = {

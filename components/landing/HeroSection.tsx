@@ -61,18 +61,24 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
         </div>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={onOpenPricing}
+          <a
+            href="/bao-gia-in-3d"
+            onClick={() => fireGrandOpeningConfetti()}
             className="rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
           >
             Báo giá in 3D lấy liền (HCM)
+          </a>
+          <button
+            type="button"
+            onClick={onOpenPricing}
+            className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
+          >
+            Xem bảng giá
           </button>
           <a
             href="/bao-gia-in-3d"
             target="_blank"
             rel="noreferrer"
-            onClick={() => fireGrandOpeningConfetti()}
             className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
           >
             Công cụ báo giá file STL

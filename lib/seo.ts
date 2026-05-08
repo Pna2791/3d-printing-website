@@ -69,6 +69,12 @@ export function rootLayoutMetadata(): Metadata {
       template: `%s | ${SITE_BRAND}`,
     },
     description,
+    alternates: {
+      languages: {
+        "vi-VN": "/",
+        "en-US": "/en",
+      },
+    },
     keywords: [...SEO_KEYWORDS],
     authors: [{ name: SITE_BRAND }],
     creator: SITE_BRAND,

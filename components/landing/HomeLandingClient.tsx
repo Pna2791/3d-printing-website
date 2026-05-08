@@ -11,6 +11,7 @@ import { HeroSection } from "@/components/landing/HeroSection";
 import { PricingPreview } from "@/components/landing/PricingPreview";
 import { PrinterStatusLive } from "@/components/landing/PrinterStatusLive";
 import { QueryError } from "@/components/landing/QueryError";
+import { GlobalOrdersSection } from "@/components/landing/GlobalOrdersSection";
 import { ShowcaseSection } from "@/components/landing/ShowcaseSection";
 import { CreateOrderForm } from "@/components/orders/CreateOrderForm";
 import { PricingModal } from "@/components/pricing/PricingModal";
@@ -77,6 +78,10 @@ export function HomeLandingClient({
             />
           )}
         </section>
+
+        <div className="py-16">
+          <GlobalOrdersSection />
+        </div>
 
         <section className="py-16">
           {workshopError ? (

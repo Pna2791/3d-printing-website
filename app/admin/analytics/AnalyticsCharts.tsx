@@ -16,12 +16,29 @@ type HourRow = { bucket: string; view_count: number };
 type DayRow = { bucket: string; view_count: number };
 type TopRow = { url: string; view_count: number };
 
-function formatHourLabel(iso: string): string {
+/** X-axis: local time only (hour); instant `iso` is interpreted in the viewer's timezone. */
+function formatHourAxisTick(iso: string): string {
   try {
     const d = new Date(iso);
-    return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit" });
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", hour12: true });
   } catch {
-    return iso;
+    return String(iso);
+  }
+}
+
+/** Tooltip label: include date where the axis is time-only (helps across midnight in the 24h window). */
+function formatHourTooltipLabel(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return String(iso);
   }
 }
 
@@ -42,7 +59,7 @@ type AnalyticsChartsProps = {
 
 export function AnalyticsCharts({ byHour, byDay, topUrls }: AnalyticsChartsProps) {
   const hourly = byHour.map((r) => ({
-    label: formatHourLabel(r.bucket),
+    bucket: r.bucket,
     views: r.view_count,
   }));
 
@@ -71,9 +88,15 @@ export function AnalyticsCharts({ byHour, byDay, topUrls }: AnalyticsChartsProps
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={hourly} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-zinc-200 dark:stroke-zinc-800" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+                <XAxis
+                  dataKey="bucket"
+                  tickFormatter={formatHourAxisTick}
+                  tick={{ fontSize: 11 }}
+                  interval="preserveStartEnd"
+                />
                 <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={36} />
                 <Tooltip
+                  labelFormatter={(label) => formatHourTooltipLabel(String(label))}
                   contentStyle={{
                     borderRadius: "12px",
                     border: "1px solid rgb(228 228 231)",
