@@ -1,5 +1,33 @@
 import type { NextConfig } from "next";
 
+function supabaseStorageImageHostname(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!raw) return null;
+  try {
+    return new URL(raw).hostname;
+  } catch {
+    return null;
+  }
+}
+
+const galleryImageRemote = supabaseStorageImageHostname();
+
+/** Patterns for Supabase Storage public URLs + any project-specific host from env (e.g. custom domain). */
+function imageRemotePatterns(): { protocol: "https"; hostname: string; pathname: string }[] {
+  const patterns: { protocol: "https"; hostname: string; pathname: string }[] = [
+    // Hosted Supabase projects (`xxxx.supabase.co`) — works even when NEXT_PUBLIC_SUPABASE_URL was missing at build time.
+    { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" },
+  ];
+  if (galleryImageRemote && !galleryImageRemote.endsWith(".supabase.co")) {
+    patterns.push({
+      protocol: "https",
+      hostname: galleryImageRemote,
+      pathname: "/storage/v1/object/public/**",
+    });
+  }
+  return patterns;
+}
+
 const nextConfig: NextConfig = {
   output: "standalone",
   async redirects() {
@@ -32,6 +60,9 @@ const nextConfig: NextConfig = {
    */
   env: {
     SUPABASE_PUBLIC_URL_AT_BUILD: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+  },
+  images: {
+    remotePatterns: imageRemotePatterns(),
   },
 };
 

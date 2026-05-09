@@ -5,6 +5,7 @@ import {
   BarChart3,
   ExternalLink,
   FileText,
+  ImageIcon,
   LayoutDashboard,
   LogOut,
 } from "lucide-react";
@@ -26,6 +27,12 @@ const adminSections: {
     label: "Quote requests",
     description: "STL quote checkout submissions from the site.",
     icon: FileText,
+  },
+  {
+    href: "/admin/gallery",
+    label: "Printed gallery",
+    description: "Homepage printed models — upload to Supabase Storage.",
+    icon: ImageIcon,
   },
 ];
 
