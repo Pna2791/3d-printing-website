@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 
 import { QuoteRoutePage } from "@/components/quote/QuoteRoutePage";
-import { getQuoteCanonicalUrl, SEO_KEYWORDS, SITE_BRAND } from "@/lib/seo";
+import { getQuoteCanonicalUrl, QUOTE_EN_SEO_PATH, SEO_KEYWORDS, SITE_BRAND } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-const quoteSeoTitleAbsolute =
-  "Báo Giá In 3D Online Lấy Liền | NA 3D SHOP - Toàn Quốc & Sinh Viên";
+const quoteSeoTitleAbsolute = `In 3D giá rẻ HCM (Thủ Đức) | Báo giá online | ${SITE_BRAND}`;
 const quoteSeoDescription =
-  "Công cụ báo giá in 3D trực tuyến chính xác nhất. Hỗ trợ nhựa PLA, PETG, ABS, TPU. Ưu đãi riêng cho sinh viên và khách hàng tại TP.HCM.";
+  "Dịch vụ in 3D giá rẻ HCM, Thủ Đức cho sinh viên & kỹ sư. Báo giá online lấy liền, ship COD toàn quốc. Chuyên in ABS buồng kín, PLA, PETG-CF.";
 
 const canonical = getQuoteCanonicalUrl();
 
@@ -18,6 +17,11 @@ export const metadata: Metadata = {
   keywords: [...SEO_KEYWORDS, "báo giá STL", "slice online", SITE_BRAND, "báo giá in 3D"],
   alternates: {
     canonical,
+    languages: {
+      "vi-VN": "/bao-gia-in-3d",
+      "en-US": QUOTE_EN_SEO_PATH,
+      "x-default": "/bao-gia-in-3d",
+    },
   },
   openGraph: {
     title: quoteSeoTitleAbsolute,

@@ -3,11 +3,12 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { FEATURES } from "@/lib/config";
 import { getPublicSupabaseConfig } from "@/lib/env";
+import { withAppLocaleHeaders } from "@/lib/request-locale";
 import type { Database } from "@/lib/supabase/types";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
-    request,
+    request: { headers: withAppLocaleHeaders(request) },
   });
 
   // FEATURE DISABLED: auth cookie refresh skipped in public read-only mode.
@@ -30,7 +31,7 @@ export async function updateSession(request: NextRequest) {
           request.cookies.set(name, value);
         });
         supabaseResponse = NextResponse.next({
-          request,
+          request: { headers: withAppLocaleHeaders(request) },
         });
         cookiesToSet.forEach(({ name, value, options }) => {
           supabaseResponse.cookies.set(name, value, options);

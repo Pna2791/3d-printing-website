@@ -1,6 +1,11 @@
 import { OFFLINE_ORDER_CONTACT } from "@/lib/config";
 import { PRICING_RULES } from "@/lib/pricing";
 import { getQuoteCanonicalUrl, getSiteUrl, SITE_BRAND } from "@/lib/seo";
+import {
+  WORKSHOP_ADDRESS,
+  WORKSHOP_GEO,
+  WORKSHOP_MAPS_SHARE_URL,
+} from "@/lib/workshop-location";
 
 const LOCAL_ID = `${getSiteUrl()}#localbusiness`;
 const SERVICE_ID = `${getSiteUrl()}#service-print-3d`;
@@ -32,18 +37,26 @@ export function HomeJsonLd({ email }: HomeJsonLdProps) {
     "@type": "LocalBusiness",
     "@id": LOCAL_ID,
     name: SITE_BRAND,
+    alternateName: "Na Works",
     description:
-      "Dịch vụ in 3D chuyên nghiệp, giá rẻ — ship COD toàn quốc; ưu đãi sinh viên và khách TP.HCM. Xưởng tại Thủ Đức, Làng Đại Học; máy in buồng kín cho ABS & nhựa kỹ thuật (PETG-CF, PLA, PETG, TPU).",
+      "Dịch vụ in 3D chuyên nghiệp, giá rẻ — ship COD toàn quốc; ưu đãi sinh viên. Xưởng NA 3D SHOP tại Bcons Miền Đông, 69 Tân Lập, Dĩ An, Bình Dương (gần Làng Đại Học Quốc Gia TP.HCM). Máy in buồng kín cho ABS & nhựa kỹ thuật (PETG-CF, PLA, PETG, TPU).",
     url,
     image: `${url}/logo-na_3d.png`,
     telephone,
     email: email?.trim() || undefined,
+    hasMap: WORKSHOP_MAPS_SHARE_URL,
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: WORKSHOP_GEO.latitude,
+      longitude: WORKSHOP_GEO.longitude,
+    },
     address: {
       "@type": "PostalAddress",
-      addressLocality: "Thủ Đức",
-      addressRegion: "Thành phố Hồ Chí Minh",
-      addressCountry: "VN",
-      streetAddress: "Khu vực Làng Đại Học",
+      streetAddress: WORKSHOP_ADDRESS.streetAddress,
+      addressLocality: WORKSHOP_ADDRESS.addressLocality,
+      addressRegion: WORKSHOP_ADDRESS.addressRegion,
+      addressCountry: WORKSHOP_ADDRESS.addressCountry,
+      postalCode: WORKSHOP_ADDRESS.postalCode,
     },
     areaServed: { "@type": "Country", name: "Vietnam" },
     priceRange: "$",

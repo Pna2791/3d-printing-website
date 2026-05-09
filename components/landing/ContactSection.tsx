@@ -1,8 +1,15 @@
-import { Globe, Mail, MapPin, Phone, Play, Music2 } from "lucide-react";
+import { Globe, Mail, Map, MapPin, Phone, Play, Music2 } from "lucide-react";
 
+import type { AppLocale } from "@/lib/i18n-dictionary";
+import { getDictionary } from "@/lib/i18n-dictionary";
 import { OFFLINE_ORDER_CONTACT } from "@/lib/config";
+import {
+  WORKSHOP_FULL_ADDRESS_VI,
+  WORKSHOP_MAPS_SHARE_URL,
+} from "@/lib/workshop-location";
 
 type ContactSectionProps = {
+  locale: AppLocale;
   email?: string;
 };
 
@@ -12,7 +19,9 @@ const SOCIAL_LINKS = [
   { label: "TikTok", href: "https://tiktok.com", icon: Music2 },
 ];
 
-export function ContactSection({ email }: ContactSectionProps) {
+export function ContactSection({ locale, email }: ContactSectionProps) {
+  const c = getDictionary(locale).home.contact;
+
   return (
     <section
       aria-labelledby="contact-heading"
@@ -22,20 +31,28 @@ export function ContactSection({ email }: ContactSectionProps) {
         id="contact-heading"
         className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50"
       >
-        Liên hệ
+        {c.title}
       </h2>
 
       <div className="mt-6 grid gap-4 text-sm text-zinc-700 dark:text-zinc-200 sm:grid-cols-2">
-        <p className="inline-flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          Làng đại học, Thủ Đức, HCM
-        </p>
+        <a
+          href={WORKSHOP_MAPS_SHARE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-start gap-2 rounded-xl underline decoration-zinc-300 underline-offset-4 transition hover:text-emerald-700 hover:decoration-emerald-600 dark:decoration-zinc-600 dark:hover:text-emerald-400 dark:hover:decoration-emerald-500/70"
+        >
+          <span className="inline-flex shrink-0 items-center gap-1 pt-0.5">
+            <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" aria-hidden />
+            <Map className="h-4 w-4 text-emerald-600/85 dark:text-emerald-400/85" aria-hidden />
+          </span>
+          <span className="min-w-0 leading-relaxed">{WORKSHOP_FULL_ADDRESS_VI}</span>
+        </a>
         <a
           href="tel:0848939059"
           className="inline-flex items-center gap-2 underline decoration-zinc-300 underline-offset-4 hover:decoration-zinc-500 dark:decoration-zinc-600"
         >
           <Phone className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-          08489.39059 (Zalo)
+          {c.phoneDisplay}
         </a>
         {email ? (
           <a

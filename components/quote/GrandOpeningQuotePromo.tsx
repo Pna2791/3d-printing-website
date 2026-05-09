@@ -3,12 +3,21 @@
 import { motion } from "framer-motion";
 
 import { isGrandOpeningPromoActive } from "@/lib/grandOpening";
+import type { NaLocale } from "@/lib/quote-paths";
 import { PRICING_RULES } from "@/lib/pricing";
 
-export function GrandOpeningQuotePromo() {
+type GrandOpeningQuotePromoProps = {
+  locale?: NaLocale;
+};
+
+export function GrandOpeningQuotePromo({ locale = "vi" }: GrandOpeningQuotePromoProps) {
   if (!isGrandOpeningPromoActive()) return null;
 
   const petgStudent = PRICING_RULES.PETG.studentVndPerGram;
+  const msg =
+    locale === "en"
+      ? `Grand-opening pricing applies! PETG from ${petgStudent} ₫/g for students`
+      : `Bạn đang được áp dụng giá khai trương! (PETG chỉ ${petgStudent}đ/g cho sinh viên)`;
 
   return (
     <motion.div
@@ -19,7 +28,7 @@ export function GrandOpeningQuotePromo() {
       role="status"
     >
       <p className="text-sm font-medium leading-snug text-emerald-100">
-        🔥 Bạn đang được áp dụng giá khai trương! (PETG chỉ {petgStudent}đ/g cho sinh viên)
+        🔥 {msg}
       </p>
     </motion.div>
   );

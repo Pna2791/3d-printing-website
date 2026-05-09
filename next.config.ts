@@ -2,6 +2,20 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  async redirects() {
+    return [
+      {
+        source: "/en/bao-gia-in-3d",
+        destination: "/en/3d-printing-quote",
+        permanent: true,
+      },
+      {
+        source: "/en/bao-gia-in-3d/:path*",
+        destination: "/en/3d-printing-quote",
+        permanent: true,
+      },
+    ];
+  },
   /**
    * Default is 10 MB; without this, `middleware` + large `POST` bodies (e.g. STL uploads to
    * `/api/slicer`) are truncated and `request.formData()` fails. Keep slightly above the route’s

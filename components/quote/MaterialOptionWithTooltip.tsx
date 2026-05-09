@@ -5,6 +5,7 @@ import { CircleHelp } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { MATERIAL_GUIDE } from "@/lib/materials";
+import type { NaLocale } from "@/lib/quote-paths";
 import type { SupportedMaterial } from "@/lib/pricing";
 
 const LONG_PRESS_MS = 520;
@@ -21,19 +22,22 @@ type MaterialOptionWithTooltipProps = {
   material: SupportedMaterial;
   selected: boolean;
   onSelect: () => void;
+  locale?: NaLocale;
 };
 
 export function MaterialOptionWithTooltip({
   material,
   selected,
   onSelect,
+  locale = "vi",
 }: MaterialOptionWithTooltipProps) {
   const chipRef = useRef<HTMLDivElement>(null);
   const longTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverHideRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pinnedOpen, setPinnedOpen] = useState(false);
   const [hoverOpen, setHoverOpen] = useState(false);
-  const summary = MATERIAL_GUIDE[material].summaryLineVi;
+  const summary =
+    locale === "en" ? MATERIAL_GUIDE[material].summaryLineEn : MATERIAL_GUIDE[material].summaryLineVi;
   const showTip = pinnedOpen || hoverOpen;
 
   const clearLongPress = useCallback(() => {

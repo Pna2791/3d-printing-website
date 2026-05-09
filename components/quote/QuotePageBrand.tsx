@@ -1,10 +1,16 @@
 import Image from "next/image";
-import { Mail, MapPin, Phone } from "lucide-react";
+import { Mail, Map, MapPin, Phone } from "lucide-react";
 
 import { OFFLINE_ORDER_CONTACT } from "@/lib/config";
+import {
+  WORKSHOP_FULL_ADDRESS_VI,
+  WORKSHOP_MAPS_SHARE_URL,
+} from "@/lib/workshop-location";
+import type { NaLocale } from "@/lib/quote-paths";
 import type { WorkshopInfoRow } from "@/lib/supabase/types";
 
 type QuotePageBrandProps = {
+  locale?: NaLocale;
   workshopRows: WorkshopInfoRow[];
   workshopError: string | null;
   /** Trang báo giá nền zinc-900 — card tối đồng bộ. */
@@ -12,6 +18,7 @@ type QuotePageBrandProps = {
 };
 
 export function QuotePageBrand({
+  locale = "vi",
   workshopRows,
   workshopError,
   surface = "light",
@@ -20,6 +27,7 @@ export function QuotePageBrand({
   const name = map.workshop_name?.trim() || "NA 3D SHOP";
   const email = map.contact_email?.trim();
   const address = map.address?.trim() ?? map.location?.trim();
+  const displayAddress = address || WORKSHOP_FULL_ADDRESS_VI;
 
   const shell =
     surface === "dark"
@@ -42,6 +50,8 @@ export function QuotePageBrand({
       ? "text-emerald-400 decoration-emerald-500/40 hover:decoration-emerald-400"
       : "text-emerald-800 decoration-emerald-600/30 hover:decoration-emerald-600 dark:text-emerald-300 dark:decoration-emerald-400/40";
 
+  const isEn = locale === "en";
+
   return (
     <div
       className={`mb-8 flex flex-col gap-5 rounded-2xl border p-5 sm:flex-row sm:items-start sm:gap-6 ${shell}`}
@@ -60,24 +70,46 @@ export function QuotePageBrand({
       </div>
 
       <div className="min-w-0 flex-1 text-center sm:text-left">
-        <p className={`text-xs font-semibold uppercase tracking-wider ${accent}`}>Xưởng in 3D</p>
+        <p className={`text-xs font-semibold uppercase tracking-wider ${accent}`}>
+          {isEn ? "3D printing workshop" : "Xưởng in 3D"}
+        </p>
         <p className={`mt-1 text-xl font-semibold tracking-tight sm:text-2xl ${titleClass}`}>
           {name}
         </p>
 
         {workshopError ? (
           <p className="mt-2 text-xs text-amber-400">
-            Không tải được thông tin từ máy chủ — hiển thị liên hệ cố định bên dưới.
+            {isEn
+              ? "Could not load workshop info from the server — showing static contacts below."
+              : "Không tải được thông tin từ máy chủ — hiển thị liên hệ cố định bên dưới."}
           </p>
         ) : null}
 
         <ul className={`mt-4 space-y-2 text-sm ${bodyMuted}`}>
-          {address ? (
-            <li className="flex items-start justify-center gap-2 sm:justify-start">
-              <MapPin className={`mt-0.5 h-4 w-4 shrink-0 ${accent}`} aria-hidden />
-              <span>{address}</span>
-            </li>
-          ) : null}
+          <li className="flex items-start justify-center gap-2 sm:justify-start">
+            <MapPin className={`mt-0.5 h-4 w-4 shrink-0 ${accent}`} aria-hidden />
+            <span className="min-w-0 text-left leading-relaxed">
+              <a
+                href={WORKSHOP_MAPS_SHARE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`font-medium underline underline-offset-4 ${linkClass}`}
+              >
+                {displayAddress}
+              </a>
+              <span className="mt-1.5 flex items-center gap-1.5 text-xs">
+                <Map className={`h-3.5 w-3.5 shrink-0 ${accent}`} aria-hidden />
+                <a
+                  href={WORKSHOP_MAPS_SHARE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`font-semibold underline-offset-2 hover:underline ${linkClass}`}
+                >
+                  {isEn ? "Directions · Google Maps" : "Chỉ đường · Google Maps"}
+                </a>
+              </span>
+            </span>
+          </li>
           {email ? (
             <li className="flex items-center justify-center gap-2 sm:justify-start">
               <Mail className={`h-4 w-4 shrink-0 ${accent}`} aria-hidden />

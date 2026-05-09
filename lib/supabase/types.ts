@@ -171,6 +171,9 @@ export type Database = {
           total_vnd: number;
           line_subtotal_vnd: number;
           floor_applied: boolean;
+          quote_asset_id: string | null;
+          stl_storage_path: string | null;
+          preview_image_url: string | null;
         };
         Insert: {
           id?: string;
@@ -193,6 +196,9 @@ export type Database = {
           total_vnd: number;
           line_subtotal_vnd: number;
           floor_applied?: boolean;
+          quote_asset_id?: string | null;
+          stl_storage_path?: string | null;
+          preview_image_url?: string | null;
         };
         Update: {
           id?: string;
@@ -215,6 +221,45 @@ export type Database = {
           total_vnd?: number;
           line_subtotal_vnd?: number;
           floor_applied?: boolean;
+          quote_asset_id?: string | null;
+          stl_storage_path?: string | null;
+          preview_image_url?: string | null;
+        };
+        Relationships: [];
+      };
+      bulk_rfq_requests: {
+        Row: {
+          id: string;
+          created_at: string;
+          contact_name: string;
+          email: string;
+          phone: string;
+          company: string;
+          quantity_estimate: number;
+          technical_requirements: string;
+          attachment_paths: string[];
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          contact_name: string;
+          email: string;
+          phone?: string;
+          company?: string;
+          quantity_estimate: number;
+          technical_requirements?: string;
+          attachment_paths?: string[];
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          contact_name?: string;
+          email?: string;
+          phone?: string;
+          company?: string;
+          quantity_estimate?: number;
+          technical_requirements?: string;
+          attachment_paths?: string[];
         };
         Relationships: [];
       };

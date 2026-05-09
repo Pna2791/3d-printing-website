@@ -85,6 +85,9 @@ fi
 echo "==> GET /api/health"
 curl -sS "http://127.0.0.1:${WEB_PORT}/api/health" | jq .
 
+echo "==> GET /api/exchange-rate"
+curl -sS "http://127.0.0.1:${WEB_PORT}/api/exchange-rate" | jq .
+
 echo "==> GET /api/health/supabase"
 curl -sS "http://127.0.0.1:${WEB_PORT}/api/health/supabase" | jq .
 

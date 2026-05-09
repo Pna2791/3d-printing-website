@@ -5,15 +5,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { useDropzone } from "react-dropzone";
-import { Box, Clock, Info, Loader2, Minus, Plus, Ruler, Scaling, Upload, Weight } from "lucide-react";
+import {
+  Box,
+  Clock,
+  Info,
+  Loader2,
+  Minus,
+  Plus,
+  Ruler,
+  Scaling,
+  Ship,
+  Upload,
+  Weight,
+} from "lucide-react";
 
+import { QuoteBulkRfqModal } from "@/components/quote/QuoteBulkRfqModal";
 import { MaterialOptionWithTooltip } from "@/components/quote/MaterialOptionWithTooltip";
 import { QuoteCheckoutModal } from "@/components/quote/QuoteCheckoutModal";
 import { fireQuoteMetadataConfetti } from "@/lib/confetti";
 import { quoteStlPreviewImageAlt } from "@/lib/quote-stl-preview-alt";
 import { FEATURES, OFFLINE_ORDER_CONTACT } from "@/lib/config";
 import {
-  applyMinimumOrderFloor,
   clampUniformModelScale,
   estimateCostFromSlicer,
   isStudentPromoActive,
@@ -24,15 +36,29 @@ import {
   QUOTE_MATERIAL_OPTIONS,
   type SupportedMaterial,
 } from "@/lib/pricing";
+import {
+  bulkTierLabel,
+  estimateIntlShippingUsd,
+  requiresRfqForm,
+  shippingRegionLabel,
+  type ShippingRegion,
+} from "@/lib/quote-international";
+import { quoteMoneyFromUnitLineVnd, QUOTE_CHECKOUT_MAX_QTY } from "@/lib/quote-checkout-totals";
+import { naLocaleHeaders, QUOTE_EN_PATH, QUOTE_VI_SEO_PATH, type NaLocale } from "@/lib/quote-paths";
+import { quoteEstimatorStrings, quoteQtyRangeHint } from "@/components/quote/quoteEstimatorLocale";
 
 type SliceOkResponse = {
   ok: true;
   task_id: string;
+  quote_asset_id?: string;
   filename: string;
   filament_used_mm: number;
   estimated_print_time: string;
   model_dimensions: { x_mm: number; y_mm: number; z_mm: number };
   preview_image: string | null;
+  preview_image_url?: string | null;
+  stl_storage_path?: string | null;
+  storage?: { stl_saved?: boolean; preview_saved?: boolean };
   /** Alt text aligned with `quote_material` + filename (SEO). */
   preview_image_alt?: string;
   /** Server hint when `preview_image` is null (thumb microservice / env). */
@@ -58,6 +84,54 @@ type SliceErrResponse = {
   error?: string;
 };
 
+type SliceStorageClientState = {
+  quote_asset_id: string | null;
+  stl_storage_path: string | null;
+  preview_image_url: string | null;
+  stl_saved: boolean;
+  preview_saved: boolean;
+};
+
+function QuoteStorageBadge({
+  isBusy,
+  stlSaved,
+  previewSaved,
+  copy,
+}: {
+  isBusy: boolean;
+  stlSaved: boolean;
+  previewSaved: boolean;
+  copy: ReturnType<typeof quoteEstimatorStrings>;
+}) {
+  if (isBusy) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-950/55 px-2 py-0.5 text-[11px] font-medium text-emerald-100/95">
+        <Loader2 className="h-3 w-3 animate-spin text-emerald-400" aria-hidden />
+        {copy.storageBusy}
+      </span>
+    );
+  }
+  if (stlSaved && previewSaved) {
+    return (
+      <span className="inline-flex shrink-0 items-center rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-200">
+        {copy.storageSavedFull}
+      </span>
+    );
+  }
+  if (stlSaved || previewSaved) {
+    return (
+      <span className="inline-flex shrink-0 items-center rounded-full border border-amber-500/35 bg-amber-950/45 px-2 py-0.5 text-[11px] font-medium text-amber-100/95">
+        {copy.storagePartial}
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex shrink-0 items-center rounded-full border border-zinc-600 bg-zinc-900/90 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
+      {copy.storageUnsynced}
+    </span>
+  );
+}
+
 const vnd = new Intl.NumberFormat("vi-VN", {
   style: "currency",
   currency: "VND",
@@ -66,20 +140,61 @@ const vnd = new Intl.NumberFormat("vi-VN", {
 
 const vndPlain = new Intl.NumberFormat("vi-VN", { maximumFractionDigits: 0 });
 
+const usdMoney = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 2,
+});
+
 function formatVndPlain(amount: number): string {
   return `${vndPlain.format(Math.round(amount))} đ`;
 }
 
-/** Định dạng `XxYxZ mm` — làm tròn lên số nguyên mm mỗi trục (vd 61.389 → 62). */
-function formatDimensionsXyzMm(x: number, y: number, z: number): string {
-  if (![x, y, z].every((v) => Number.isFinite(v))) return "—";
-  const a = Math.ceil(x);
-  const b = Math.ceil(y);
-  const c = Math.ceil(z);
-  return `${a}x${b}x${c} mm`;
+function vndToUsd(vnd: number, vndPerUsd: number): number {
+  const rate = Number.isFinite(vndPerUsd) && vndPerUsd > 0 ? vndPerUsd : 25500;
+  return vnd / rate;
 }
 
-const MAX_QUANTITY = 9999;
+function renderMoneyDual(
+  vndAmount: number,
+  currency: "VND" | "USD",
+  vndPerUsd: number,
+): { primary: string; secondary: string | null } {
+  const v = Math.round(vndAmount);
+  if (currency === "VND") {
+    const us = vndToUsd(v, vndPerUsd);
+    return { primary: vnd.format(v), secondary: `≈ ${usdMoney.format(us)}` };
+  }
+  return {
+    primary: usdMoney.format(vndToUsd(v, vndPerUsd)),
+    secondary: `${formatVndPlain(v)}`,
+  };
+}
+
+type LengthDisplay = "metric_mm" | "imperial_in";
+
+/** Bounding box display: metric (ceil mm) or imperial (1 decimal inches per axis). */
+function formatDimensionsXYZ(x: number, y: number, z: number, mode: LengthDisplay): string {
+  if (![x, y, z].every((v) => Number.isFinite(v))) return "—";
+  if (mode === "metric_mm") {
+    const a = Math.ceil(x);
+    const b = Math.ceil(y);
+    const c = Math.ceil(z);
+    return `${a}×${b}×${c} mm`;
+  }
+  const toIn = (mm: number) => Math.round((mm / 25.4) * 10) / 10;
+  return `${toIn(x)}×${toIn(y)}×${toIn(z)} in`;
+}
+
+function formatFilamentLength(mm: number | null | undefined, mode: LengthDisplay): string {
+  const m = typeof mm === "number" && Number.isFinite(mm) ? mm : NaN;
+  if (!Number.isFinite(m)) return "—";
+  if (mode === "metric_mm") return `${m.toFixed(0)} mm`;
+  const inches = m / 25.4;
+  return `${inches.toFixed(1)} in (${m.toFixed(0)} mm)`;
+}
+
+const MAX_QUANTITY = QUOTE_CHECKOUT_MAX_QTY;
 const DEFAULT_QUANTITY = 1;
 
 function StatCardSkeleton() {
@@ -125,8 +240,14 @@ function PriceBlockSkeleton() {
   );
 }
 
-export function QuoteEstimatorClient() {
+export type QuoteEstimatorClientProps = {
+  locale?: NaLocale;
+  materialsHref?: string;
+};
+
+export function QuoteEstimatorClient({ locale = "vi", materialsHref = "/materials" }: QuoteEstimatorClientProps) {
   const pathname = usePathname();
+  const c = quoteEstimatorStrings(locale);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [material, setMaterial] = useState<SupportedMaterial>("PLA");
   const [isStudent, setIsStudent] = useState(false);
@@ -141,7 +262,31 @@ export function QuoteEstimatorClient() {
   const [modelScale, setModelScale] = useState(MODEL_SCALE_DEFAULT);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [isRescaling, setIsRescaling] = useState(false);
+  const [sliceStorage, setSliceStorage] = useState<SliceStorageClientState | null>(null);
   const lastSyncedScaleRef = useRef(MODEL_SCALE_DEFAULT);
+  const [displayCurrency, setDisplayCurrency] = useState<"VND" | "USD">("VND");
+  const [lengthDisplay, setLengthDisplay] = useState<LengthDisplay>("metric_mm");
+  const [shippingRegion, setShippingRegion] = useState<ShippingRegion>("VN");
+  const [vndPerUsd, setVndPerUsd] = useState(25500);
+  const [exchangeSource, setExchangeSource] = useState<string | null>(null);
+  const [rfqOpen, setRfqOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/exchange-rate")
+      .then((r) => r.json())
+      .then((data: { vndPerUsd?: number; source?: string }) => {
+        if (cancelled) return;
+        if (typeof data.vndPerUsd === "number" && Number.isFinite(data.vndPerUsd) && data.vndPerUsd > 0) {
+          setVndPerUsd(Math.round(data.vndPerUsd));
+          setExchangeSource(typeof data.source === "string" ? data.source : null);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const onDrop = useCallback(async (accepted: File[]) => {
     const file = accepted[0];
@@ -153,6 +298,7 @@ export function QuoteEstimatorClient() {
     setPreviewHint(null);
     setModelScale(MODEL_SCALE_DEFAULT);
     setSourceFile(null);
+    setSliceStorage(null);
     lastSyncedScaleRef.current = MODEL_SCALE_DEFAULT;
     setPendingFileName(file.name);
     setIsSlicing(true);
@@ -165,11 +311,12 @@ export function QuoteEstimatorClient() {
       const res = await fetch("/api/slicer", {
         method: "POST",
         body,
+        headers: naLocaleHeaders(locale),
       });
       const json = (await res.json()) as SliceOkResponse | SliceErrResponse;
       if (!res.ok || !("ok" in json) || json.ok !== true) {
         const err = json as SliceErrResponse;
-        setError(err.error ?? `Lỗi ${res.status}`);
+        setError(err.error ?? `${c.errorHttp}${res.status}`);
         setPendingFileName(null);
         return;
       }
@@ -185,8 +332,16 @@ export function QuoteEstimatorClient() {
       setSourceFile(file);
       setPendingFileName(null);
       fireQuoteMetadataConfetti();
-      if (data.preview_image) {
-        setPreviewUrl(data.preview_image);
+      setSliceStorage({
+        quote_asset_id: typeof data.quote_asset_id === "string" ? data.quote_asset_id : null,
+        stl_storage_path: typeof data.stl_storage_path === "string" ? data.stl_storage_path : null,
+        preview_image_url: typeof data.preview_image_url === "string" ? data.preview_image_url : null,
+        stl_saved: Boolean(data.storage?.stl_saved),
+        preview_saved: Boolean(data.storage?.preview_saved),
+      });
+      const preferredPreview = data.preview_image_url || data.preview_image;
+      if (preferredPreview) {
+        setPreviewUrl(preferredPreview);
         setPreviewStatus("ready");
         setPreviewHint(null);
       } else {
@@ -196,12 +351,12 @@ export function QuoteEstimatorClient() {
       }
       setQuantity(DEFAULT_QUANTITY);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Lỗi mạng");
+      setError(e instanceof Error ? e.message : c.networkError);
       setPendingFileName(null);
     } finally {
       setIsSlicing(false);
     }
-  }, [material]);
+  }, [material, locale, c.errorHttp, c.networkError]);
 
   useEffect(() => {
     if (!sourceFile) return;
@@ -221,12 +376,13 @@ export function QuoteEstimatorClient() {
           const res = await fetch("/api/slicer", {
             method: "POST",
             body,
+            headers: naLocaleHeaders(locale),
             signal: ac.signal,
           });
           const json = (await res.json()) as SliceOkResponse | SliceErrResponse;
           if (!res.ok || !("ok" in json) || json.ok !== true) {
             const err = json as SliceErrResponse;
-            setError(err.error ?? `Lỗi ${res.status}`);
+            setError(err.error ?? `${c.errorHttp}${res.status}`);
             setModelScale(lastSyncedScaleRef.current);
             return;
           }
@@ -244,9 +400,16 @@ export function QuoteEstimatorClient() {
               : null,
           );
           lastSyncedScaleRef.current = scale;
+          setSliceStorage({
+            quote_asset_id: typeof data.quote_asset_id === "string" ? data.quote_asset_id : null,
+            stl_storage_path: typeof data.stl_storage_path === "string" ? data.stl_storage_path : null,
+            preview_image_url: typeof data.preview_image_url === "string" ? data.preview_image_url : null,
+            stl_saved: Boolean(data.storage?.stl_saved),
+            preview_saved: Boolean(data.storage?.preview_saved),
+          });
         } catch (e) {
           if (e instanceof DOMException && e.name === "AbortError") return;
-          setError(e instanceof Error ? e.message : "Lỗi mạng");
+          setError(e instanceof Error ? e.message : c.networkError);
           setModelScale(lastSyncedScaleRef.current);
         } finally {
           setIsRescaling(false);
@@ -258,7 +421,7 @@ export function QuoteEstimatorClient() {
       window.clearTimeout(tid);
       ac.abort();
     };
-  }, [modelScale, sourceFile]);
+  }, [modelScale, sourceFile, locale, c.errorHttp, c.networkError]);
 
   const cost = useMemo(() => {
     if (!metadata) return null;
@@ -269,11 +432,18 @@ export function QuoteEstimatorClient() {
 
   const quoteTotals = useMemo(() => {
     if (!cost) return null;
-    const q0 = Number.isFinite(quantity) && quantity >= 1 ? quantity : DEFAULT_QUANTITY;
-    const qty = Math.min(MAX_QUANTITY, Math.max(1, Math.floor(q0)));
-    const lineSubtotal = Math.round(cost.totalVnd * qty);
-    const floor = applyMinimumOrderFloor(lineSubtotal, isStudent);
-    return { qty, lineSubtotal, ...floor };
+    const rawQty = Number.isFinite(quantity) && quantity >= 1 ? quantity : DEFAULT_QUANTITY;
+    const money = quoteMoneyFromUnitLineVnd(cost.totalVnd, rawQty, isStudent);
+    return {
+      qty: money.qty,
+      lineSubtotal: money.lineSubtotal,
+      bulkTier: money.bulkTier,
+      bulkAdjustedSubtotal: money.bulkAdjustedSubtotal,
+      subtotalVnd: money.subtotalVnd,
+      totalVnd: money.totalVnd,
+      floorApplied: money.floorApplied,
+      minimumVnd: money.minimumVnd,
+    };
   }, [cost, quantity, isStudent]);
 
   /** Đã có báo giá đầy đủ và không đang chờ file mới (pending) — hiển thị thanh tải file gọn. */
@@ -290,15 +460,19 @@ export function QuoteEstimatorClient() {
 
   const totalWeightGrams = cost ? unitWeightGramsCeil * (quoteTotals?.qty ?? 1) : 0;
 
+  const intlFreightUsd = useMemo(() => {
+    if (!cost || shippingRegion === "VN") return null;
+    return estimateIntlShippingUsd(totalWeightGrams, shippingRegion);
+  }, [cost, shippingRegion, totalWeightGrams]);
+
   const floorExplanation = useMemo(() => {
     if (!quoteTotals?.floorApplied) return null;
-    return isStudent
-      ? "Giá đã được điều chỉnh về mức tối thiểu 30.000đ cho sinh viên."
-      : "Giá đã được điều chỉnh về mức tối thiểu 50.000đ cho người dùng thường.";
-  }, [quoteTotals, isStudent]);
+    return isStudent ? c.floorStudent : c.floorGeneral;
+  }, [quoteTotals, isStudent, c.floorStudent, c.floorGeneral]);
 
   const orderLinkHref = useMemo(() => {
-    if (!quoteTotals || !cost) return "/#dat-hang";
+    const baseHome = pathname === "/en" || pathname?.startsWith("/en/") ? "/en" : "/";
+    if (!quoteTotals || !cost) return `${baseHome}#dat-hang`;
     const q = new URLSearchParams({
       quote_qty: String(quoteTotals.qty),
       quote_unit_g: String(unitWeightGramsCeil),
@@ -307,14 +481,27 @@ export function QuoteEstimatorClient() {
       quote_total_vnd: String(quoteTotals.totalVnd),
       quote_scale: clampUniformModelScale(modelScale).toFixed(2),
     });
-    return `/?${q.toString()}#dat-hang`;
-  }, [quoteTotals, cost, unitWeightGramsCeil, material, isStudent, modelScale]);
+    return `${baseHome}?${q.toString()}#dat-hang`;
+  }, [
+    pathname,
+    quoteTotals,
+    cost,
+    unitWeightGramsCeil,
+    material,
+    isStudent,
+    modelScale,
+  ]);
 
-  const showQuoteCheckout = pathname === "/bao-gia-in-3d" && FEATURES.QUOTE_CHECKOUT_ENABLED;
+  const showQuoteCheckout =
+    (pathname === QUOTE_VI_SEO_PATH ||
+      pathname === QUOTE_EN_PATH ||
+      pathname === "/quote") &&
+    FEATURES.QUOTE_CHECKOUT_ENABLED &&
+    Boolean(quoteTotals && !requiresRfqForm(quoteTotals.qty));
 
   const checkoutPayload = useMemo(() => {
     if (!metadata || !quoteTotals || !cost) return null;
-    return {
+    const base = {
       slicer_task_id: metadata.task_id,
       filename: metadata.filename,
       material,
@@ -326,9 +513,35 @@ export function QuoteEstimatorClient() {
       estimated_print_time: metadata.estimated_print_time,
       total_vnd: quoteTotals.totalVnd,
     };
-  }, [metadata, quoteTotals, cost, material, isStudent, modelScale]);
+    const s = sliceStorage;
+    if (s?.quote_asset_id && s.stl_storage_path && s.stl_saved) {
+      return {
+        ...base,
+        quote_asset_id: s.quote_asset_id,
+        stl_storage_path: s.stl_storage_path,
+        preview_image_url: s.preview_image_url ?? null,
+      };
+    }
+    return base;
+  }, [metadata, quoteTotals, cost, material, isStudent, modelScale, sliceStorage]);
 
   const promoOn = isStudentPromoActive();
+
+  const bulkExplanation = useMemo(() => {
+    const tier = quoteTotals?.bulkTier;
+    return bulkTierLabel(tier ?? { kind: "none" }, locale);
+  }, [quoteTotals?.bulkTier, locale]);
+
+  const quotePriceLines = useMemo(() => {
+    if (!quoteTotals) return null;
+    const total = renderMoneyDual(quoteTotals.totalVnd, displayCurrency, vndPerUsd);
+    const afterBulkSame =
+      quoteTotals.bulkTier.kind === "percent" && quoteTotals.lineSubtotal !== quoteTotals.bulkAdjustedSubtotal;
+    const afterBulk = afterBulkSame
+      ? renderMoneyDual(quoteTotals.bulkAdjustedSubtotal, displayCurrency, vndPerUsd)
+      : null;
+    return { total, afterBulk };
+  }, [quoteTotals, displayCurrency, vndPerUsd]);
 
   const onPreviewImageError = useCallback(() => {
     setPreviewUrl(null);
@@ -355,12 +568,66 @@ export function QuoteEstimatorClient() {
   const showWorkspace = Boolean(pendingFileName || metadata);
   const showStatSkeletons = isSlicing || !metadata || isRescaling;
   const previewGenerating = isSlicing;
+  const storageBadgeBusy = Boolean(pendingFileName) || isSlicing || isRescaling;
+  const storageStSaved = sliceStorage?.stl_saved ?? false;
+  const storagePreviewSaved = sliceStorage?.preview_saved ?? false;
 
   const uploadMotion = { type: "spring" as const, stiffness: 420, damping: 32 };
 
   return (
     <LayoutGroup>
       <div className="space-y-8">
+        <div className="flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/85 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{c.displayHeading}</span>
+            <select
+              value={displayCurrency}
+              aria-label={c.currencyAria}
+              onChange={(e) => setDisplayCurrency(e.target.value === "USD" ? "USD" : "VND")}
+              className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/35"
+            >
+              <option value="VND">{c.vndOption}</option>
+              <option value="USD">{c.usdOption}</option>
+            </select>
+            <select
+              value={lengthDisplay}
+              aria-label={c.lengthAria}
+              onChange={(e) =>
+                setLengthDisplay(e.target.value === "imperial_in" ? "imperial_in" : "metric_mm")
+              }
+              className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/35"
+            >
+              <option value="metric_mm">Mm (metric)</option>
+              <option value="imperial_in">Inch (US)</option>
+            </select>
+          </div>
+          <div className="flex min-w-[220px] flex-1 flex-wrap items-center gap-2 sm:justify-end">
+            <Ship className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
+            <label className="flex flex-1 items-center gap-2 text-xs text-zinc-400 sm:flex-none">
+              <span className="whitespace-nowrap font-semibold text-zinc-300">{c.freightLabel}</span>
+              <select
+                value={shippingRegion}
+                aria-label={c.freightAria}
+                onChange={(e) => setShippingRegion(e.target.value as ShippingRegion)}
+                className="mt-1 w-full min-w-[12rem] rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/35 sm:mt-0"
+              >
+                {(["VN", "ASIA", "EUROPE", "USA"] as const satisfies readonly ShippingRegion[]).map((k) => (
+                  <option key={k} value={k}>
+                    {shippingRegionLabel(k, locale)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {displayCurrency === "USD" && exchangeSource ? (
+            <p className="w-full text-[11px] leading-snug text-zinc-600">
+              {c.exchangeNotePrefix}
+              <span className="font-mono text-emerald-500/80">{exchangeSource}</span> (~{vndPerUsd.toLocaleString("vi-VN")}{" "}
+              ₫/USD){c.exchangeNoteSuffix}
+            </p>
+          ) : null}
+        </div>
+
         <AnimatePresence mode="wait" initial={false}>
           {showCompactUploadStrip ? (
             <motion.div
@@ -382,11 +649,17 @@ export function QuoteEstimatorClient() {
                 })}
               >
                 <input {...getInputProps()} />
-                <div className="flex min-w-0 flex-1 items-center gap-2">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                   <Upload className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
-                  <span className="truncate text-sm font-medium text-zinc-200" title={displayFilename}>
+                  <span className="min-w-0 truncate text-sm font-medium text-zinc-200" title={displayFilename}>
                     {displayFilename}
                   </span>
+                  <QuoteStorageBadge
+                    isBusy={storageBadgeBusy}
+                    stlSaved={storageStSaved}
+                    previewSaved={storagePreviewSaved}
+                    copy={c}
+                  />
                 </div>
                 <button
                   type="button"
@@ -397,11 +670,11 @@ export function QuoteEstimatorClient() {
                   disabled={isSlicing || isRescaling}
                   className="shrink-0 rounded-lg border border-emerald-500/50 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-emerald-200 transition hover:border-emerald-400 hover:bg-zinc-800 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Báo giá mẫu khác
+                  {c.uploadOtherFile}
                 </button>
               </div>
               <p className="mt-1.5 text-center text-[11px] text-zinc-500">
-                Kéo thả STL vào khung trên hoặc bấm &quot;Báo giá mẫu khác&quot; · tối đa 50 MB
+                {c.uploadHintCompact}
               </p>
             </motion.div>
           ) : (
@@ -429,10 +702,10 @@ export function QuoteEstimatorClient() {
                   <Upload className="h-7 w-7" aria-hidden />
                 </div>
                 <p className="mt-4 text-center text-sm font-medium text-zinc-100">
-                  {isDragActive ? "Thả file STL vào đây" : "Kéo thả file STL hoặc bấm để chọn"}
+                  {isDragActive ? c.dropHere : c.dropChoose}
                 </p>
                 <p className="mt-1 text-center text-xs text-zinc-500">
-                  Tối đa 50 MB · chỉ định dạng .stl
+                  {c.uploadSub}
                 </p>
               </div>
             </motion.div>
@@ -469,39 +742,38 @@ export function QuoteEstimatorClient() {
                   </div>
                   {modelScale !== MODEL_SCALE_DEFAULT ? (
                     <p className="text-center text-[11px] leading-snug text-zinc-500">
-                      Ảnh là file gốc đã tải; giá và kích thước bên dưới theo tỷ lệ{" "}
+                      {c.previewScaleCaptionBefore}
                       <span className="font-semibold text-zinc-400">
                         {(clampUniformModelScale(modelScale) * 100).toFixed(0)}%
                       </span>
-                      .
+                      {c.previewScaleCaptionAfter}
                     </p>
                   ) : null}
                 </div>
               ) : previewGenerating ? (
                 <PreviewGeneratingPlaceholder
-                  headline="Generating 3D Preview…"
-                  subline="Đang lấy metadata slicer và dựng ảnh xem trước…"
+                  headline={c.previewHeadlineGenerating}
+                  subline={c.previewSubSlicer}
                 />
               ) : previewStatus === "error" ? (
                 <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/40 px-4 text-center text-sm text-zinc-400">
-                  <p>Ảnh xem trước chưa sẵn sàng.</p>
+                  <p>{c.previewErrorTitle}</p>
                   <p className="text-xs text-zinc-500">
-                    Ảnh không hiển thị được hoặc máy chủ chưa cấu hình bộ dựng thumbnail. Báo giá bên vẫn dùng
-                    metadata đã nhận.
+                    {c.previewErrorBody}
                   </p>
                 </div>
               ) : (
                 <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-700 px-4 py-6 text-center">
-                  <p className="text-sm font-medium text-zinc-400">Chưa có ảnh xem trước 3D</p>
+                  <p className="text-sm font-medium text-zinc-400">{c.previewMissingTitle}</p>
                   <p className="max-w-md text-xs leading-relaxed text-zinc-500">
-                    Ảnh được tạo bởi dịch vụ <span className="text-zinc-400">thumb-service</span> (FastAPI), không
-                    phải slicer. Khi chạy <span className="text-zinc-400">next dev</span> trên máy, đặt{" "}
+                    {c.previewMissingBodyBefore}
+                    <span className="text-zinc-400">thumb-service</span> (FastAPI).{" "}
                     <code className="rounded bg-zinc-800 px-1 py-0.5 text-[11px] text-emerald-400/90">
-                      STL2THUMB_SERVICE_URL=http://127.0.0.1:8887
-                    </code>{" "}
-                    nếu API thumbnail chạy cổng 8887; trong Docker Compose dùng{" "}
+                      {c.previewMissingCodeDev}
+                    </code>
+                    {c.previewMissingAfter}
                     <code className="rounded bg-zinc-800 px-1 py-0.5 text-[11px] text-emerald-400/90">
-                      http://thumb-service:8887
+                      {c.previewMissingCodeDocker}
                     </code>
                     .
                   </p>
@@ -519,14 +791,23 @@ export function QuoteEstimatorClient() {
               <p className="flex gap-2 rounded-xl border border-amber-500/20 bg-amber-950/25 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 opacity-80" aria-hidden />
                 <span>
-                  <strong className="font-semibold">Xem trước (beta):</strong> chất lượng hình ảnh có thể
-                  chưa tốt; đây chỉ là minh họa từ geometry STL,{" "}
-                  <strong className="font-semibold">không phải thành phẩm in</strong> thực tế.
+                  <strong className="font-semibold">{c.previewBetaLead}</strong>
+                  {c.previewBetaRest}
                 </span>
               </p>
 
               <div>
-                <h2 className="text-lg font-semibold text-zinc-50">{displayFilename}</h2>
+                <div className="flex flex-wrap items-center gap-2 gap-y-2">
+                  <h2 className="min-w-0 flex-1 break-all text-lg font-semibold text-zinc-50 sm:break-words">
+                    {displayFilename}
+                  </h2>
+                  <QuoteStorageBadge
+                    isBusy={storageBadgeBusy}
+                    stlSaved={storageStSaved}
+                    previewSaved={storagePreviewSaved}
+                    copy={c}
+                  />
+                </div>
                 <ul className="mt-4 grid gap-3 sm:grid-cols-2">
                   {showStatSkeletons ? (
                     <>
@@ -541,13 +822,14 @@ export function QuoteEstimatorClient() {
                           <Ruler className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Kích thước (XYZ)
+                              {c.dimLabelXYZ}{lengthDisplay === "imperial_in" ? c.dimImperialSuffix : c.dimMetricSuffix}
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
-                              {formatDimensionsXyzMm(
+                              {formatDimensionsXYZ(
                                 metadata.model_dimensions.x_mm,
                                 metadata.model_dimensions.y_mm,
                                 metadata.model_dimensions.z_mm,
+                                lengthDisplay,
                               )}
                             </p>
                           </div>
@@ -556,7 +838,7 @@ export function QuoteEstimatorClient() {
                           <Clock className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Thời gian in (ước tính)
+                              {c.printTimeLabel}
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
                               {metadata.estimated_print_time || "—"}
@@ -567,12 +849,10 @@ export function QuoteEstimatorClient() {
                           <Box className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Độ dài nhựa đùn (1 mẫu)
+                              {c.filamentLabel}
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
-                              {Number.isFinite(metadata.filament_used_mm)
-                                ? `${metadata.filament_used_mm.toFixed(0)} mm`
-                                : "—"}
+                              {formatFilamentLength(metadata.filament_used_mm, lengthDisplay)}
                             </p>
                           </div>
                         </li>
@@ -580,7 +860,7 @@ export function QuoteEstimatorClient() {
                           <Weight className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Khối lượng ước tính (1 mẫu)
+                              {c.weightLabel}
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
                               {cost ? `${unitWeightGramsCeil} g (${material})` : "—"}
@@ -594,18 +874,38 @@ export function QuoteEstimatorClient() {
             </div>
 
             <aside className="space-y-6 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-6">
+              <div className="rounded-xl border border-zinc-700/80 bg-zinc-950/40 p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-400/90">
+                  {c.bulkTitle}
+                </p>
+                <ul className="mt-2 space-y-1 text-xs leading-relaxed text-zinc-400">
+                  <li>{c.bulkLine510}</li>
+                  <li>{c.bulkLine51200}</li>
+                  <li>{c.bulkLine200}</li>
+                  <li>{c.bulkLine500}</li>
+                </ul>
+              </div>
+              <p className="text-xs leading-relaxed text-zinc-400">
+                {c.bulkTipLead}
+                <span className="font-semibold text-zinc-200">{c.bulkTipStudent}</span>
+                {c.bulkTipMid}
+                <span className="font-semibold text-zinc-200">{c.bulkTipMaterial}</span>
+                {c.bulkTipChamber}
+                <span className="font-semibold text-zinc-200">{c.bulkTipChamberName}</span>
+                {c.bulkTipEnd}
+              </p>
               {metadata ? (
                 <div>
                   <div className="flex items-center gap-2">
                     <Scaling className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
                     <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Tỷ lệ mô hình (hộp giới hạn)
+                      {c.scaleHeading}
                     </p>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <input
                       type="range"
-                      aria-label="Tỷ lệ mô hình"
+                      aria-label={c.scaleAria}
                       min={MODEL_SCALE_MIN}
                       max={MODEL_SCALE_MAX}
                       step={MODEL_SCALE_STEP}
@@ -622,7 +922,7 @@ export function QuoteEstimatorClient() {
               ) : null}
 
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Đối tượng</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{c.audienceHeading}</p>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -634,7 +934,7 @@ export function QuoteEstimatorClient() {
                         : "border border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-emerald-500/40",
                     ].join(" ")}
                   >
-                    Người dùng thường
+                    {c.audienceGeneral}
                   </button>
                   <button
                     type="button"
@@ -646,12 +946,12 @@ export function QuoteEstimatorClient() {
                         : "border border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-emerald-500/40",
                     ].join(" ")}
                   >
-                    Sinh viên
+                    {c.audienceStudent}
                   </button>
                 </div>
                 {isStudent && !promoOn ? (
                   <p className="mt-2 text-xs text-amber-400/90">
-                    Giá ưu đãi sinh viên (trong đợt khuyến mãi) có thể chưa áp dụng theo ngày.
+                    {c.audienceStudentNote}
                   </p>
                 ) : null}
               </div>
@@ -662,17 +962,17 @@ export function QuoteEstimatorClient() {
                     id="quote-material-label"
                     className="text-xs font-medium uppercase tracking-wide text-zinc-500"
                   >
-                    Loại nhựa
+                    {c.materialHeading}
                   </p>
                   <Link
-                    href="/materials"
+                    href={materialsHref}
                     className="text-xs font-semibold text-emerald-400 underline-offset-2 hover:text-emerald-300 hover:underline"
                   >
-                    Hướng dẫn chi tiết
+                    {c.materialGuideLink}
                   </Link>
                 </div>
                 <p className="mt-1 text-[11px] leading-snug text-zinc-600 md:hidden">
-                  Chạm giữ chip nhựa hoặc bấm biểu tượng trợ giúp bên cạnh để xem gợi ý nhanh.
+                  {c.materialHintMobile}
                 </p>
                 <div
                   className="mt-2 flex flex-wrap gap-3 overflow-visible"
@@ -685,17 +985,18 @@ export function QuoteEstimatorClient() {
                       material={m}
                       selected={material === m}
                       onSelect={() => setMaterial(m)}
+                      locale={locale}
                     />
                   ))}
                 </div>
               </div>
 
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Số lượng</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{c.qtyHeading}</p>
                 <div className="mt-2 flex max-w-[240px] items-stretch gap-0 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950">
                   <button
                     type="button"
-                    aria-label="Giảm số lượng"
+                    aria-label={c.qtyDecAria}
                     disabled={quantity <= 1}
                     onClick={() => bumpQuantity(-1)}
                     className="flex w-11 shrink-0 items-center justify-center border-r border-zinc-700 text-zinc-100 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-35"
@@ -713,7 +1014,7 @@ export function QuoteEstimatorClient() {
                   />
                   <button
                     type="button"
-                    aria-label="Tăng số lượng"
+                    aria-label={c.qtyIncAria}
                     disabled={quantity >= MAX_QUANTITY}
                     onClick={() => bumpQuantity(1)}
                     className="flex w-11 shrink-0 items-center justify-center border-l border-zinc-700 text-zinc-100 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-35"
@@ -722,21 +1023,67 @@ export function QuoteEstimatorClient() {
                   </button>
                 </div>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Tối thiểu {DEFAULT_QUANTITY} · tối đa {MAX_QUANTITY}
+                  {quoteQtyRangeHint(locale, DEFAULT_QUANTITY, MAX_QUANTITY)}
                 </p>
               </div>
 
               {cost && quoteTotals ? (
                 <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4">
                   <p className="text-xs font-medium uppercase tracking-wide text-emerald-300/90">
-                    Ước tính giá in (Tổng)
+                    {c.priceTotalHeading}
                   </p>
                   <p className="mt-1 text-2xl font-bold tracking-tight text-emerald-50">
-                    {vnd.format(quoteTotals.totalVnd)}
+                    {quotePriceLines?.total.primary ?? vnd.format(quoteTotals.totalVnd)}
                   </p>
+                  {quotePriceLines?.total.secondary ? (
+                    <p className="mt-1 text-xs tabular-nums text-emerald-100/70">
+                      {quotePriceLines.total.secondary}
+                    </p>
+                  ) : null}
                   <p className="mt-2 text-sm font-medium tabular-nums text-emerald-100/85">
-                    {formatVndPlain(cost.totalVnd)} × {quoteTotals.qty} = {formatVndPlain(quoteTotals.lineSubtotal)}
+                    {formatVndPlain(cost.totalVnd)}
+                    {c.lineEquation}
+                    {quoteTotals.qty} = {formatVndPlain(quoteTotals.lineSubtotal)}
                   </p>
+                  {quoteTotals.bulkTier.kind === "percent" && quoteTotals.lineSubtotal !== quoteTotals.bulkAdjustedSubtotal ? (
+                    <p className="mt-1 text-xs text-emerald-200/85">
+                      {c.afterBulk.replace(
+                        "{tier}",
+                        bulkTierLabel(quoteTotals.bulkTier, locale) ?? "",
+                      )}{" "}
+                      <span className="font-semibold tabular-nums">
+                        {quotePriceLines?.afterBulk?.primary ?? formatVndPlain(quoteTotals.bulkAdjustedSubtotal)}
+                      </span>
+                    </p>
+                  ) : null}
+                  {quoteTotals.bulkTier.kind === "manual_quote" && bulkExplanation ? (
+                    <p className="mt-2 flex gap-1.5 rounded-lg border border-amber-500/25 bg-amber-950/30 px-2.5 py-2 text-xs leading-snug text-amber-100/90">
+                      <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400/80" aria-hidden />
+                      <span>{bulkExplanation}</span>
+                    </p>
+                  ) : null}
+                  {intlFreightUsd != null ? (
+                    <p className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-zinc-300">
+                      <Ship className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400/80" aria-hidden />
+                      <span>
+                        {c.intlFreightLead}{" "}
+                        <strong className="tabular-nums text-zinc-100">
+                          {usdMoney.format(intlFreightUsd)}
+                        </strong>
+                        {displayCurrency === "VND" ? (
+                          <>
+                            {" "}
+                            <span className="text-zinc-500">
+                              {c.intlFreightTaxNote}
+                              {formatVndPlain(Math.round(intlFreightUsd * vndPerUsd))}
+                            </span>
+                          </>
+                        ) : null}
+                      </span>
+                    </p>
+                  ) : shippingRegion !== "VN" ? (
+                    <p className="mt-2 text-xs text-zinc-500">{c.intlFreightNeedFile}</p>
+                  ) : null}
                   {floorExplanation ? (
                     <p
                       className="mt-2 flex gap-1.5 text-xs leading-snug text-zinc-400"
@@ -751,8 +1098,7 @@ export function QuoteEstimatorClient() {
                   ) : null}
                   {cost.isStudentDiscountApplied ? (
                     <p className="mt-2 text-xs text-emerald-200/80">
-                      Giá 1 mẫu: áp dụng {cost.discountedGrams.toFixed(0)} g theo giá sinh viên trong đợt
-                      khuyến mãi (trên 1 mẫu).
+                      {c.studentDiscountLine.replace("{grams}", cost.discountedGrams.toFixed(0))}
                     </p>
                   ) : null}
                 </div>
@@ -761,26 +1107,34 @@ export function QuoteEstimatorClient() {
               )}
 
               <div className="space-y-2">
-                {showQuoteCheckout && cost && quoteTotals ? (
+                {quoteTotals && requiresRfqForm(quoteTotals.qty) ? (
+                  <button
+                    type="button"
+                    className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-zinc-950 shadow-sm shadow-emerald-500/25 transition hover:bg-emerald-400"
+                    onClick={() => setRfqOpen(true)}
+                  >
+                    {c.rfqCta}
+                  </button>
+                ) : showQuoteCheckout && cost && quoteTotals ? (
                   <button
                     type="button"
                     disabled={isRescaling}
                     onClick={() => setCheckoutOpen(true)}
                     className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-zinc-950 shadow-sm shadow-emerald-500/25 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Đặt in ngay
+                    {c.orderNow}
                   </button>
-                ) : (
+                ) : quoteTotals ? (
                   <Link
                     href={orderLinkHref}
                     className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-400"
                   >
-                    Đặt in mẫu này
+                    {c.orderSample}
                   </Link>
-                )}
+                ) : null}
                 {!FEATURES.ORDER_ENABLED || !FEATURES.AUTH_ENABLED ? (
                   <div className="space-y-2 text-center text-xs text-zinc-400">
-                    <p>Đặt hàng trực tuyến đang tắt — vui lòng liên hệ:</p>
+                    <p>{c.orderDisabledLead}</p>
                     <p className="flex flex-col items-center gap-1 sm:flex-row sm:justify-center sm:gap-x-4 sm:gap-y-0">
                       <a
                         href={OFFLINE_ORDER_CONTACT.zaloTelHref}
@@ -801,19 +1155,19 @@ export function QuoteEstimatorClient() {
                       </a>
                     </p>
                     <p className="text-zinc-500">
-                      Ghi chú báo giá: số lượng {quoteTotals?.qty ?? "—"}, khối lượng tổng ~
+                      {c.orderNoteLead}
+                      {quoteTotals?.qty ?? "—"}
+                      {c.orderNoteWeight}
                       {cost ? `${totalWeightGrams} g` : "…"} ({material}
-                      {quoteTotals?.floorApplied
-                        ? `, tổng thanh toán tối thiểu ${vnd.format(quoteTotals.totalVnd)}`
-                        : ""}
-                      ).
+                      {quoteTotals?.floorApplied ? `${c.orderNoteFloor}${vnd.format(quoteTotals.totalVnd)}` : ""}).
                     </p>
                   </div>
                 ) : (
                   <p className="text-center text-xs text-zinc-500">
-                    Mở form đặt hàng trên trang chủ; tham khảo tổng khối lượng ~
-                    {cost ? `${totalWeightGrams} g` : "…"} ({unitWeightGramsCeil} g/mẫu ×{" "}
-                    {quoteTotals?.qty ?? "—"}), tổng tiền ước tính{" "}
+                    {c.orderEnabledHint}
+                    {cost ? `${totalWeightGrams} g` : "…"} ({unitWeightGramsCeil}{" "}
+                    {c.orderHomePerPartSuffix}{" "}
+                    {quoteTotals?.qty ?? "—"}), {c.orderHomeTotalLead}{" "}
                     {quoteTotals ? vnd.format(quoteTotals.totalVnd) : "—"}.
                   </p>
                 )}
@@ -826,7 +1180,7 @@ export function QuoteEstimatorClient() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
             </span>
-            <span className="text-xs font-medium text-zinc-400">Xưởng đang hoạt động</span>
+            <span className="text-xs font-medium text-zinc-400">{c.footerWorkshopLive}</span>
           </footer>
         </motion.section>
       ) : null}
@@ -835,6 +1189,13 @@ export function QuoteEstimatorClient() {
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         quotePayload={checkoutPayload}
+        locale={locale}
+      />
+      <QuoteBulkRfqModal
+        open={rfqOpen}
+        onClose={() => setRfqOpen(false)}
+        defaultQuantity={quoteTotals && quoteTotals.qty > 500 ? quoteTotals.qty : 501}
+        locale={locale}
       />
       </div>
     </LayoutGroup>

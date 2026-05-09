@@ -3,45 +3,49 @@ import type { Metadata } from "next";
 import { HomeJsonLd } from "@/components/seo/HomeJsonLd";
 import { HomeLandingClient } from "@/components/landing/HomeLandingClient";
 import { getPrinterImagesForLocale, getShowcaseImagesForLocale } from "@/lib/home-static-assets";
-import { getSiteUrl, SEO_KEYWORDS, SITE_BRAND } from "@/lib/seo";
+import { getSiteUrl, SITE_BRAND } from "@/lib/seo";
 import { getMaterialsWithPricing } from "@/services/materialService";
 import { getPrinters } from "@/services/printerService";
 import { getWorkshopInfo } from "@/services/workshopService";
 
-/** Always read Supabase-backed data at request time (runtime env in Docker / production). */
 export const dynamic = "force-dynamic";
 
-const homeTitle = `In 3D giá rẻ HCM (Thủ Đức) | Báo giá online | ${SITE_BRAND}`;
-const homeDescription =
-  "Dịch vụ in 3D giá rẻ HCM, Thủ Đức cho sinh viên & kỹ sư. Báo giá online lấy liền, ship COD toàn quốc. Chuyên in ABS buồng kín, PLA, PETG-CF.";
+const title = `Affordable 3D printing HCMC (Thu Duc) | Instant quote | ${SITE_BRAND}`;
+const description =
+  "NA 3D SHOP near Vietnam National University village (Di An / Thu Duc). Student-friendly FDM pricing, nationwide COD, enclosed ABS & engineering materials — PLA, PETG, PETG-CF, TPU.";
 
 export const metadata: Metadata = {
-  title: { absolute: homeTitle },
-  description: homeDescription,
-  keywords: [...SEO_KEYWORDS, SITE_BRAND],
+  title: { absolute: title },
+  description,
+  keywords: ["Vietnam 3D printing", "HCMC 3D print", "Thu Duc 3D printing", "STL quote", SITE_BRAND],
   alternates: {
-    canonical: "/",
+    canonical: "/en",
+    languages: {
+      "vi-VN": "/",
+      "en-US": "/en",
+      "x-default": "/",
+    },
   },
   openGraph: {
-    title: homeTitle,
-    description: homeDescription,
-    url: getSiteUrl(),
+    title,
+    description,
+    url: `${getSiteUrl()}/en`,
     type: "website",
-    locale: "vi_VN",
+    locale: "en_US",
   },
   twitter: {
-    title: homeTitle,
-    description: homeDescription,
+    title,
+    description,
   },
 };
 
-export default async function Home() {
+export default async function EnHomePage() {
   const [workshopRes, materialsRes, printersRes, showcaseImages, printerImages] = await Promise.all([
     getWorkshopInfo(),
     getMaterialsWithPricing(),
     getPrinters(),
-    getShowcaseImagesForLocale("vi"),
-    getPrinterImagesForLocale("vi"),
+    getShowcaseImagesForLocale("en"),
+    getPrinterImagesForLocale("en"),
   ]);
 
   const workshopMap = Object.fromEntries((workshopRes.data ?? []).map((row) => [row.key, row.value]));
@@ -50,7 +54,7 @@ export default async function Home() {
     <>
       <HomeJsonLd email={workshopMap.contact_email} />
       <HomeLandingClient
-        locale="vi"
+        locale="en"
         workshopRows={workshopRes.data ?? []}
         workshopError={workshopRes.error}
         materials={materialsRes.data ?? []}

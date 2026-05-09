@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { NextResponse } from "next/server";
 
 import { getSlicerApiBaseUrl } from "@/lib/env";
@@ -7,6 +9,15 @@ import {
   MODEL_SCALE_DEFAULT,
 } from "@/lib/pricing";
 import { parseQuoteMaterialFromForm, quoteStlPreviewImageAlt } from "@/lib/quote-stl-preview-alt";
+import {
+  buildQuotePreviewObjectPath,
+  buildQuoteStlObjectPath,
+  dataUrlToBuffer,
+  uploadQuotePreviewPngToStorage,
+  uploadQuoteStlToStorage,
+  utcDatePrefixForStorage,
+} from "@/lib/supabase/quoteSliceAssets";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/service";
 import { generateThumbnailFromStlBuffer } from "@/lib/thumbnail-generator";
 
 export const runtime = "nodejs";
@@ -223,6 +234,27 @@ export async function POST(request: Request) {
     );
   }
 
+  const quoteAssetId = randomUUID();
+  const datePrefix = utcDatePrefixForStorage();
+  const stlStoragePath = buildQuoteStlObjectPath(quoteAssetId, datePrefix);
+  const previewStoragePath = buildQuotePreviewObjectPath(quoteAssetId);
+
+  let stl_storage_path: string | null = null;
+  let preview_image_url: string | null = null;
+  const storage = { stl_saved: false, preview_saved: false };
+
+  if (!createSupabaseServiceRoleClient()) {
+    console.warn("[api/slicer] skip STL storage: SUPABASE_SERVICE_ROLE_KEY / URL not configured");
+  } else {
+    const stlRes = await uploadQuoteStlToStorage(stlBytes, stlStoragePath);
+    if (stlRes.ok) {
+      storage.stl_saved = true;
+      stl_storage_path = stlStoragePath;
+    } else {
+      console.error("[api/slicer] STL storage upload failed:", stlRes.message);
+    }
+  }
+
   const outbound = new FormData();
   outbound.set(
     "file",
@@ -434,15 +466,36 @@ export async function POST(request: Request) {
 
   const preview_image_alt = quoteStlPreviewImageAlt(filenameOut, quoteMaterial);
 
+  if (preview_image?.startsWith("data:")) {
+    if (!createSupabaseServiceRoleClient()) {
+      console.warn("[api/slicer] skip preview storage: SUPABASE_SERVICE_ROLE_KEY / URL not configured");
+    } else {
+      const pngBuf = dataUrlToBuffer(preview_image);
+      if (pngBuf) {
+        const pr = await uploadQuotePreviewPngToStorage(pngBuf, previewStoragePath);
+        if (pr.ok) {
+          storage.preview_saved = true;
+          preview_image_url = pr.publicUrl;
+        } else {
+          console.error("[api/slicer] preview storage upload failed:", pr.message);
+        }
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     task_id: publicTaskId,
+    quote_asset_id: quoteAssetId,
     filename: filenameOut,
     filament_used_mm,
     estimated_print_time,
     model_dimensions,
     preview_image,
     preview_image_alt,
+    preview_image_url,
+    stl_storage_path,
+    storage,
     preview_error,
     preview_pending,
     uniform_scale: uniformScale,

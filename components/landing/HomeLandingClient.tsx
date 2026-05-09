@@ -11,13 +11,18 @@ import { HeroSection } from "@/components/landing/HeroSection";
 import { PricingPreview } from "@/components/landing/PricingPreview";
 import { PrinterStatusLive } from "@/components/landing/PrinterStatusLive";
 import { QueryError } from "@/components/landing/QueryError";
+import { GlobalOrdersSection } from "@/components/landing/GlobalOrdersSection";
 import { ShowcaseSection } from "@/components/landing/ShowcaseSection";
+import { WorkshopLocationSection } from "@/components/landing/WorkshopLocationSection";
 import { CreateOrderForm } from "@/components/orders/CreateOrderForm";
 import { PricingModal } from "@/components/pricing/PricingModal";
+import type { AppLocale } from "@/lib/i18n-dictionary";
+import { getDictionary } from "@/lib/i18n-dictionary";
 import { FEATURES, OFFLINE_ORDER_CONTACT } from "@/lib/config";
 import type { MaterialWithPricing, PrinterRow, WorkshopInfoRow } from "@/lib/supabase/types";
 
 type HomeLandingClientProps = {
+  locale: AppLocale;
   workshopRows: WorkshopInfoRow[];
   workshopError: string | null;
   materials: MaterialWithPricing[];
@@ -29,6 +34,7 @@ type HomeLandingClientProps = {
 };
 
 export function HomeLandingClient({
+  locale,
   workshopRows,
   workshopError,
   materials,
@@ -39,6 +45,8 @@ export function HomeLandingClient({
   printerImages,
 }: HomeLandingClientProps) {
   const [isPricingOpen, setIsPricingOpen] = useState(false);
+  const qe = getDictionary(locale).home.queryError;
+  const order = getDictionary(locale).home.order;
 
   const workshopMap = Object.fromEntries(
     workshopRows.map((row) => [row.key, row.value]),
@@ -46,22 +54,22 @@ export function HomeLandingClient({
 
   return (
     <main className="min-h-screen bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      <GrandOpeningBar />
+      <GrandOpeningBar locale={locale} />
       <GrandOpeningLandingConfetti />
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <HeroSection onOpenPricing={() => setIsPricingOpen(true)} />
+        <HeroSection locale={locale} onOpenPricing={() => setIsPricingOpen(true)} />
 
         <div className="py-8">
-          <EnclosedPrintingSection />
+          <EnclosedPrintingSection locale={locale} />
         </div>
 
-        <ShowcaseSection images={showcaseImages} />
+        <ShowcaseSection locale={locale} images={showcaseImages} />
 
-        <AboutSection images={printerImages} />
+        <AboutSection locale={locale} images={printerImages} />
 
         <section className="py-16">
           {printersError ? (
-            <QueryError title="Không tải được tình trạng máy in" message={printersError} />
+            <QueryError title={qe.printers} message={printersError} />
           ) : (
             <PrinterStatusLive initialPrinters={printers} />
           )}
@@ -69,20 +77,27 @@ export function HomeLandingClient({
 
         <section className="py-16">
           {materialsError ? (
-            <QueryError title="Không tải được bảng giá nhanh" message={materialsError} />
+            <QueryError title={qe.materials} message={materialsError} />
           ) : (
             <PricingPreview
+              locale={locale}
               materials={materials}
               onOpenPricing={() => setIsPricingOpen(true)}
             />
           )}
         </section>
 
+        <div className="py-16">
+          <GlobalOrdersSection locale={locale} />
+        </div>
+
+        <WorkshopLocationSection locale={locale} />
+
         <section className="py-16">
           {workshopError ? (
-            <QueryError title="Không tải được phần liên hệ" message={workshopError} />
+            <QueryError title={qe.workshop} message={workshopError} />
           ) : (
-            <ContactSection email={workshopMap.contact_email} />
+            <ContactSection locale={locale} email={workshopMap.contact_email} />
           )}
         </section>
 
@@ -92,16 +107,14 @@ export function HomeLandingClient({
         >
           <div className="mx-auto max-w-2xl">
             <h2 className="text-center text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-              Đặt in
+              {order.title}
             </h2>
-            <p className="mt-2 text-center text-sm text-zinc-600 dark:text-zinc-400">
-              Từ trang báo giá, bạn có thể nhảy tới đây để gửi đơn khi đặt in trực tuyến được bật.
-            </p>
+            <p className="mt-2 text-center text-sm text-zinc-600 dark:text-zinc-400">{order.subtitle}</p>
             <div className="mt-8">
               <CreateOrderForm materials={materials} printers={printers} />
               {!FEATURES.ORDER_ENABLED || !FEATURES.AUTH_ENABLED ? (
                 <div className="rounded-2xl border border-zinc-200 bg-zinc-50/80 p-6 text-center text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-400">
-                  <p>Đặt hàng qua web đang tắt — vui lòng liên hệ:</p>
+                  <p>{order.disabledLead}</p>
                   <p className="mt-3 flex flex-col items-center gap-2 sm:flex-row sm:justify-center sm:gap-6">
                     <a
                       href={OFFLINE_ORDER_CONTACT.zaloTelHref}
@@ -118,9 +131,7 @@ export function HomeLandingClient({
                       {OFFLINE_ORDER_CONTACT.fanpageLabel}
                     </a>
                   </p>
-                  <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-500">
-                    Hoặc email trong mục Liên hệ phía trên.
-                  </p>
+                  <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-500">{order.disabledHint}</p>
                 </div>
               ) : null}
             </div>
