@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Activity, ArrowLeft, BarChart3, Eye, LineChart, LogOut } from "lucide-react";
+import { Activity, ArrowLeft, BarChart3, Eye, LayoutDashboard, LineChart, LogOut } from "lucide-react";
 
 import { loadAnalyticsDashboard } from "@/lib/analytics/dashboard-data";
 
@@ -28,7 +28,20 @@ export default async function AdminAnalyticsPage() {
               with an HttpOnly auth cookie.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/admin"
+              className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-white dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
+            >
+              <LayoutDashboard className="size-4" aria-hidden />
+              Dashboard
+            </Link>
+            <Link
+              href="/admin/quotes"
+              className="inline-flex items-center gap-2 rounded-xl border border-zinc-300 px-4 py-2 text-sm font-semibold text-zinc-800 transition hover:bg-white dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
+            >
+              Quote requests
+            </Link>
             <form action="/api/admin/logout" method="post">
               <button
                 type="submit"

@@ -28,7 +28,7 @@ export default function AdminLoginPage() {
         return;
       }
 
-      router.push("/admin/analytics");
+      router.push("/admin");
       router.refresh();
     } catch {
       setError("Network error. Please try again.");
@@ -44,8 +44,8 @@ export default function AdminLoginPage() {
           <KeyRound className="size-3.5" aria-hidden />
           Admin access
         </p>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-zinc-50">Sign in to analytics</h1>
-        <p className="mt-2 text-sm text-zinc-400">Use your admin secret to continue.</p>
+        <h1 className="mt-4 text-2xl font-semibold tracking-tight text-zinc-50">Sign in to admin</h1>
+        <p className="mt-2 text-sm text-zinc-400">Use your admin secret to open the dashboard and tools.</p>
 
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <label className="block space-y-2">
