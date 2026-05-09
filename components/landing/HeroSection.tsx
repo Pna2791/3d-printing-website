@@ -3,15 +3,21 @@
 import Image from "next/image";
 import { motion } from "framer-motion";
 
+import type { AppLocale } from "@/lib/i18n-dictionary";
+import { getDictionary } from "@/lib/i18n-dictionary";
 import { fireGrandOpeningConfetti } from "@/lib/confetti";
 import { isGrandOpeningPromoActive } from "@/lib/grandOpening";
 import { PRICING_RULES } from "@/lib/pricing";
+import { QUOTE_EN_PATH, QUOTE_VI_SEO_PATH } from "@/lib/quote-paths";
 
 type HeroSectionProps = {
+  locale: AppLocale;
   onOpenPricing: () => void;
 };
 
-export function HeroSection({ onOpenPricing }: HeroSectionProps) {
+export function HeroSection({ locale, onOpenPricing }: HeroSectionProps) {
+  const h = getDictionary(locale).home.hero;
+  const quoteHref = locale === "en" ? QUOTE_EN_PATH : QUOTE_VI_SEO_PATH;
   const promo = isGrandOpeningPromoActive();
   const petgStudent = PRICING_RULES.PETG.studentVndPerGram;
 
@@ -19,14 +25,15 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
     <section className="grid gap-10 py-16 lg:grid-cols-2 lg:items-center">
       <div>
         <p className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1 text-sm font-medium text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
-          Ship toàn quốc — Ưu đãi lớn cho sinh viên
+          {h.badge}
         </p>
         <h1 className="mt-5 text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-5xl">
-          In 3D giá rẻ HCM (Thủ Đức) — NA 3D SHOP giao hàng COD toàn quốc
+          {h.title}
         </h1>
         <p className="mt-4 text-lg text-zinc-600 dark:text-zinc-300">
-          Xưởng tại khu vực Làng Đại Học (Thủ Đức), liền kề Dĩ An — giá minh bạch, ưu đãi đặc biệt cho sinh viên
-          và khách nội thành; tư vấn tận tình từng đơn.
+          {h.leadBefore}{" "}
+          <span className="font-medium text-zinc-800 dark:text-zinc-100">{h.leadHighlight}</span>{" "}
+          {h.leadAfter}
         </p>
 
         {promo ? (
@@ -35,15 +42,13 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
-            Xưởng đang hoạt động — Nhận file in ngay hôm nay!
+            {h.promoLive}
           </p>
         ) : null}
 
         <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5 dark:border-emerald-900/50 dark:bg-emerald-900/20">
-          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-            Khai trương từ 01/05 - 10/05
-          </p>
-          <p className="mt-2 text-sm text-emerald-800 dark:text-emerald-200">Giá từ 400đ/g</p>
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">{h.openingCardTitle}</p>
+          <p className="mt-2 text-sm text-emerald-800 dark:text-emerald-200">{h.openingCardFrom}</p>
           <motion.p
             className="mt-3 inline-block rounded-xl px-4 py-2.5 text-xl font-extrabold leading-tight tracking-tight text-emerald-950 sm:text-2xl md:text-3xl dark:text-emerald-50"
             animate={{
@@ -56,32 +61,34 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
             }}
             transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
           >
-            {petgStudent}đ/gram cho sinh viên
+            {petgStudent}
+            {locale === "en" ? " " : ""}
+            {h.petgStudentSuffix}
           </motion.p>
         </div>
 
         <div className="mt-8 flex flex-wrap gap-3">
           <a
-            href="/bao-gia-in-3d"
+            href={quoteHref}
             onClick={() => fireGrandOpeningConfetti()}
             className="rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
           >
-            Báo giá in 3D lấy liền (HCM)
+            {h.ctaQuote}
           </a>
           <button
             type="button"
             onClick={onOpenPricing}
             className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
           >
-            Xem bảng giá
+            {h.ctaPricing}
           </button>
           <a
-            href="/bao-gia-in-3d"
+            href={quoteHref}
             target="_blank"
             rel="noreferrer"
             className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
           >
-            Công cụ báo giá file STL
+            {h.ctaStlTool}
           </a>
         </div>
       </div>
@@ -90,7 +97,7 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
         <div className="relative aspect-square">
           <Image
             src="/logo-na_3d.png"
-            alt="Logo NA 3D SHOP — in 3D giá rẻ, ship toàn quốc"
+            alt={h.logoAlt}
             fill
             className="object-cover object-center rounded-2xl"
             priority
@@ -105,10 +112,10 @@ export function HeroSection({ onOpenPricing }: HeroSectionProps) {
               transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
             >
               <p className="text-[8px] font-black uppercase leading-tight tracking-wide text-emerald-700 dark:text-emerald-300">
-                Grand Opening
+                {h.stickerLine1}
               </p>
               <p className="mt-0.5 text-[8px] font-bold uppercase leading-tight text-zinc-800 dark:text-zinc-100">
-                — Giảm giá sinh viên
+                {h.stickerLine2}
               </p>
             </motion.div>
           ) : null}

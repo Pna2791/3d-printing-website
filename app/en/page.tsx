@@ -1,67 +1,69 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 
 import { HomeJsonLd } from "@/components/seo/HomeJsonLd";
+import { HomeLandingClient } from "@/components/landing/HomeLandingClient";
+import { getPrinterImagesForLocale, getShowcaseImagesForLocale } from "@/lib/home-static-assets";
+import { getSiteUrl, SITE_BRAND } from "@/lib/seo";
+import { getMaterialsWithPricing } from "@/services/materialService";
+import { getPrinters } from "@/services/printerService";
+import { getWorkshopInfo } from "@/services/workshopService";
 
 export const dynamic = "force-dynamic";
 
-export default function EnHomePage() {
+const title = `Affordable 3D printing HCMC (Thu Duc) | Instant quote | ${SITE_BRAND}`;
+const description =
+  "NA 3D SHOP near Vietnam National University village (Di An / Thu Duc). Student-friendly FDM pricing, nationwide COD, enclosed ABS & engineering materials — PLA, PETG, PETG-CF, TPU.";
+
+export const metadata: Metadata = {
+  title: { absolute: title },
+  description,
+  keywords: ["Vietnam 3D printing", "HCMC 3D print", "Thu Duc 3D printing", "STL quote", SITE_BRAND],
+  alternates: {
+    canonical: "/en",
+    languages: {
+      "vi-VN": "/",
+      "en-US": "/en",
+      "x-default": "/",
+    },
+  },
+  openGraph: {
+    title,
+    description,
+    url: `${getSiteUrl()}/en`,
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    title,
+    description,
+  },
+};
+
+export default async function EnHomePage() {
+  const [workshopRes, materialsRes, printersRes, showcaseImages, printerImages] = await Promise.all([
+    getWorkshopInfo(),
+    getMaterialsWithPricing(),
+    getPrinters(),
+    getShowcaseImagesForLocale("en"),
+    getPrinterImagesForLocale("en"),
+  ]);
+
+  const workshopMap = Object.fromEntries((workshopRes.data ?? []).map((row) => [row.key, row.value]));
+
   return (
-    <main className="min-h-screen bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-      <HomeJsonLd />
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <section className="grid gap-10 py-16 lg:grid-cols-2 lg:items-center">
-          <div>
-            <p className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-4 py-1 text-sm font-medium text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-300">
-              Nationwide COD shipping — student-friendly pricing
-            </p>
-            <h1 className="mt-5 text-4xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-5xl">
-              Affordable 3D Printing in HCMC (Thu Duc) — NA 3D SHOP
-            </h1>
-            <p className="mt-4 text-lg text-zinc-600 dark:text-zinc-300">
-              Workshop near Vietnam National University area (Thu Duc), next to Di An. Transparent pricing for
-              students and engineers, with engineering-grade materials and enclosed-chamber ABS printing.
-            </p>
-
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                href="/en/bao-gia-in-3d"
-                className="rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-              >
-                Instant 3D print quote
-              </Link>
-              <Link
-                href="/en/bao-gia-in-3d"
-                className="rounded-xl border border-zinc-300 px-5 py-3 text-sm font-semibold text-zinc-800 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
-              >
-                Upload STL
-              </Link>
-            </div>
-          </div>
-
-          <div className="rounded-3xl border border-zinc-200 bg-zinc-100 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-              Why choose our workshop for global orders?
-            </h2>
-            <ul className="mt-4 space-y-3 text-sm text-zinc-700 dark:text-zinc-300">
-              <li>
-                <span className="font-semibold text-emerald-700 dark:text-emerald-300">Enclosed chamber</span>{" "}
-                printing for ABS and engineering materials.
-              </li>
-              <li>
-                <span className="font-semibold text-emerald-700 dark:text-emerald-300">Strict QC</span> and clear
-                communication for functional parts.
-              </li>
-              <li>
-                Rapid prototyping to small-batch production with scalable capacity.
-              </li>
-            </ul>
-            <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">
-              English pages are being expanded. The quoting tool is fully functional.
-            </p>
-          </div>
-        </section>
-      </div>
-    </main>
+    <>
+      <HomeJsonLd email={workshopMap.contact_email} />
+      <HomeLandingClient
+        locale="en"
+        workshopRows={workshopRes.data ?? []}
+        workshopError={workshopRes.error}
+        materials={materialsRes.data ?? []}
+        materialsError={materialsRes.error}
+        printers={printersRes.data ?? []}
+        printersError={printersRes.error}
+        showcaseImages={showcaseImages}
+        printerImages={printerImages}
+      />
+    </>
   );
 }
-

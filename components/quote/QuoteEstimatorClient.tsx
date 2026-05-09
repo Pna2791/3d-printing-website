@@ -26,7 +26,6 @@ import { fireQuoteMetadataConfetti } from "@/lib/confetti";
 import { quoteStlPreviewImageAlt } from "@/lib/quote-stl-preview-alt";
 import { FEATURES, OFFLINE_ORDER_CONTACT } from "@/lib/config";
 import {
-  applyMinimumOrderFloor,
   clampUniformModelScale,
   estimateCostFromSlicer,
   isStudentPromoActive,
@@ -38,13 +37,15 @@ import {
   type SupportedMaterial,
 } from "@/lib/pricing";
 import {
-  applyBulkPctToSubtotal,
-  bulkTierForQty,
+  bulkTierLabel,
   estimateIntlShippingUsd,
   requiresRfqForm,
-  SHIPPING_REGION_LABEL_VI,
+  shippingRegionLabel,
   type ShippingRegion,
 } from "@/lib/quote-international";
+import { quoteMoneyFromUnitLineVnd, QUOTE_CHECKOUT_MAX_QTY } from "@/lib/quote-checkout-totals";
+import { naLocaleHeaders, QUOTE_EN_PATH, QUOTE_VI_SEO_PATH, type NaLocale } from "@/lib/quote-paths";
+import { quoteEstimatorStrings, quoteQtyRangeHint } from "@/components/quote/quoteEstimatorLocale";
 
 type SliceOkResponse = {
   ok: true;
@@ -95,36 +96,38 @@ function QuoteStorageBadge({
   isBusy,
   stlSaved,
   previewSaved,
+  copy,
 }: {
   isBusy: boolean;
   stlSaved: boolean;
   previewSaved: boolean;
+  copy: ReturnType<typeof quoteEstimatorStrings>;
 }) {
   if (isBusy) {
     return (
       <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-950/55 px-2 py-0.5 text-[11px] font-medium text-emerald-100/95">
         <Loader2 className="h-3 w-3 animate-spin text-emerald-400" aria-hidden />
-        Đang xử lý…
+        {copy.storageBusy}
       </span>
     );
   }
   if (stlSaved && previewSaved) {
     return (
       <span className="inline-flex shrink-0 items-center rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-200">
-        Đã lưu kho
+        {copy.storageSavedFull}
       </span>
     );
   }
   if (stlSaved || previewSaved) {
     return (
       <span className="inline-flex shrink-0 items-center rounded-full border border-amber-500/35 bg-amber-950/45 px-2 py-0.5 text-[11px] font-medium text-amber-100/95">
-        Lưu một phần
+        {copy.storagePartial}
       </span>
     );
   }
   return (
     <span className="inline-flex shrink-0 items-center rounded-full border border-zinc-600 bg-zinc-900/90 px-2 py-0.5 text-[11px] font-medium text-zinc-400">
-      Chưa đồng bộ kho
+      {copy.storageUnsynced}
     </span>
   );
 }
@@ -191,7 +194,7 @@ function formatFilamentLength(mm: number | null | undefined, mode: LengthDisplay
   return `${inches.toFixed(1)} in (${m.toFixed(0)} mm)`;
 }
 
-const MAX_QUANTITY = 9999;
+const MAX_QUANTITY = QUOTE_CHECKOUT_MAX_QTY;
 const DEFAULT_QUANTITY = 1;
 
 function StatCardSkeleton() {
@@ -237,8 +240,14 @@ function PriceBlockSkeleton() {
   );
 }
 
-export function QuoteEstimatorClient() {
+export type QuoteEstimatorClientProps = {
+  locale?: NaLocale;
+  materialsHref?: string;
+};
+
+export function QuoteEstimatorClient({ locale = "vi", materialsHref = "/materials" }: QuoteEstimatorClientProps) {
   const pathname = usePathname();
+  const c = quoteEstimatorStrings(locale);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [material, setMaterial] = useState<SupportedMaterial>("PLA");
   const [isStudent, setIsStudent] = useState(false);
@@ -302,11 +311,12 @@ export function QuoteEstimatorClient() {
       const res = await fetch("/api/slicer", {
         method: "POST",
         body,
+        headers: naLocaleHeaders(locale),
       });
       const json = (await res.json()) as SliceOkResponse | SliceErrResponse;
       if (!res.ok || !("ok" in json) || json.ok !== true) {
         const err = json as SliceErrResponse;
-        setError(err.error ?? `Lỗi ${res.status}`);
+        setError(err.error ?? `${c.errorHttp}${res.status}`);
         setPendingFileName(null);
         return;
       }
@@ -341,12 +351,12 @@ export function QuoteEstimatorClient() {
       }
       setQuantity(DEFAULT_QUANTITY);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Lỗi mạng");
+      setError(e instanceof Error ? e.message : c.networkError);
       setPendingFileName(null);
     } finally {
       setIsSlicing(false);
     }
-  }, [material]);
+  }, [material, locale, c.errorHttp, c.networkError]);
 
   useEffect(() => {
     if (!sourceFile) return;
@@ -366,12 +376,13 @@ export function QuoteEstimatorClient() {
           const res = await fetch("/api/slicer", {
             method: "POST",
             body,
+            headers: naLocaleHeaders(locale),
             signal: ac.signal,
           });
           const json = (await res.json()) as SliceOkResponse | SliceErrResponse;
           if (!res.ok || !("ok" in json) || json.ok !== true) {
             const err = json as SliceErrResponse;
-            setError(err.error ?? `Lỗi ${res.status}`);
+            setError(err.error ?? `${c.errorHttp}${res.status}`);
             setModelScale(lastSyncedScaleRef.current);
             return;
           }
@@ -398,7 +409,7 @@ export function QuoteEstimatorClient() {
           });
         } catch (e) {
           if (e instanceof DOMException && e.name === "AbortError") return;
-          setError(e instanceof Error ? e.message : "Lỗi mạng");
+          setError(e instanceof Error ? e.message : c.networkError);
           setModelScale(lastSyncedScaleRef.current);
         } finally {
           setIsRescaling(false);
@@ -410,7 +421,7 @@ export function QuoteEstimatorClient() {
       window.clearTimeout(tid);
       ac.abort();
     };
-  }, [modelScale, sourceFile]);
+  }, [modelScale, sourceFile, locale, c.errorHttp, c.networkError]);
 
   const cost = useMemo(() => {
     if (!metadata) return null;
@@ -421,14 +432,18 @@ export function QuoteEstimatorClient() {
 
   const quoteTotals = useMemo(() => {
     if (!cost) return null;
-    const q0 = Number.isFinite(quantity) && quantity >= 1 ? quantity : DEFAULT_QUANTITY;
-    const qty = Math.min(MAX_QUANTITY, Math.max(1, Math.floor(q0)));
-    const lineSubtotal = Math.round(cost.totalVnd * qty);
-    const bulkTier = bulkTierForQty(qty);
-    const bulkAdjustedSubtotal =
-      bulkTier.kind === "percent" ? applyBulkPctToSubtotal(lineSubtotal, bulkTier) : lineSubtotal;
-    const floor = applyMinimumOrderFloor(bulkAdjustedSubtotal, isStudent);
-    return { qty, lineSubtotal, bulkTier, bulkAdjustedSubtotal, ...floor };
+    const rawQty = Number.isFinite(quantity) && quantity >= 1 ? quantity : DEFAULT_QUANTITY;
+    const money = quoteMoneyFromUnitLineVnd(cost.totalVnd, rawQty, isStudent);
+    return {
+      qty: money.qty,
+      lineSubtotal: money.lineSubtotal,
+      bulkTier: money.bulkTier,
+      bulkAdjustedSubtotal: money.bulkAdjustedSubtotal,
+      subtotalVnd: money.subtotalVnd,
+      totalVnd: money.totalVnd,
+      floorApplied: money.floorApplied,
+      minimumVnd: money.minimumVnd,
+    };
   }, [cost, quantity, isStudent]);
 
   /** Đã có báo giá đầy đủ và không đang chờ file mới (pending) — hiển thị thanh tải file gọn. */
@@ -452,13 +467,12 @@ export function QuoteEstimatorClient() {
 
   const floorExplanation = useMemo(() => {
     if (!quoteTotals?.floorApplied) return null;
-    return isStudent
-      ? "Giá đã được điều chỉnh về mức tối thiểu 30.000đ cho sinh viên."
-      : "Giá đã được điều chỉnh về mức tối thiểu 50.000đ cho người dùng thường.";
-  }, [quoteTotals, isStudent]);
+    return isStudent ? c.floorStudent : c.floorGeneral;
+  }, [quoteTotals, isStudent, c.floorStudent, c.floorGeneral]);
 
   const orderLinkHref = useMemo(() => {
-    if (!quoteTotals || !cost) return "/#dat-hang";
+    const baseHome = pathname === "/en" || pathname?.startsWith("/en/") ? "/en" : "/";
+    if (!quoteTotals || !cost) return `${baseHome}#dat-hang`;
     const q = new URLSearchParams({
       quote_qty: String(quoteTotals.qty),
       quote_unit_g: String(unitWeightGramsCeil),
@@ -467,11 +481,21 @@ export function QuoteEstimatorClient() {
       quote_total_vnd: String(quoteTotals.totalVnd),
       quote_scale: clampUniformModelScale(modelScale).toFixed(2),
     });
-    return `/?${q.toString()}#dat-hang`;
-  }, [quoteTotals, cost, unitWeightGramsCeil, material, isStudent, modelScale]);
+    return `${baseHome}?${q.toString()}#dat-hang`;
+  }, [
+    pathname,
+    quoteTotals,
+    cost,
+    unitWeightGramsCeil,
+    material,
+    isStudent,
+    modelScale,
+  ]);
 
   const showQuoteCheckout =
-    (pathname === "/bao-gia-in-3d" || pathname === "/en/bao-gia-in-3d") &&
+    (pathname === QUOTE_VI_SEO_PATH ||
+      pathname === QUOTE_EN_PATH ||
+      pathname === "/quote") &&
     FEATURES.QUOTE_CHECKOUT_ENABLED &&
     Boolean(quoteTotals && !requiresRfqForm(quoteTotals.qty));
 
@@ -505,11 +529,8 @@ export function QuoteEstimatorClient() {
 
   const bulkExplanation = useMemo(() => {
     const tier = quoteTotals?.bulkTier;
-    if (!tier) return null;
-    if (tier.kind === "percent") return tier.labelVi;
-    if (tier.kind === "manual_quote") return tier.labelVi;
-    return null;
-  }, [quoteTotals?.bulkTier]);
+    return bulkTierLabel(tier ?? { kind: "none" }, locale);
+  }, [quoteTotals?.bulkTier, locale]);
 
   const quotePriceLines = useMemo(() => {
     if (!quoteTotals) return null;
@@ -558,19 +579,19 @@ export function QuoteEstimatorClient() {
       <div className="space-y-8">
         <div className="flex flex-col gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/85 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Hiển thị</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">{c.displayHeading}</span>
             <select
               value={displayCurrency}
-              aria-label="Đơn vị tiền"
+              aria-label={c.currencyAria}
               onChange={(e) => setDisplayCurrency(e.target.value === "USD" ? "USD" : "VND")}
               className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/35"
             >
-              <option value="VND">VNĐ</option>
-              <option value="USD">USD (ước tính)</option>
+              <option value="VND">{c.vndOption}</option>
+              <option value="USD">{c.usdOption}</option>
             </select>
             <select
               value={lengthDisplay}
-              aria-label="Đơn vị chiều dài"
+              aria-label={c.lengthAria}
               onChange={(e) =>
                 setLengthDisplay(e.target.value === "imperial_in" ? "imperial_in" : "metric_mm")
               }
@@ -583,16 +604,16 @@ export function QuoteEstimatorClient() {
           <div className="flex min-w-[220px] flex-1 flex-wrap items-center gap-2 sm:justify-end">
             <Ship className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
             <label className="flex flex-1 items-center gap-2 text-xs text-zinc-400 sm:flex-none">
-              <span className="whitespace-nowrap font-semibold text-zinc-300">Freight estimate</span>
+              <span className="whitespace-nowrap font-semibold text-zinc-300">{c.freightLabel}</span>
               <select
                 value={shippingRegion}
-                aria-label="Khu vực nhận hàng quốc tế"
+                aria-label={c.freightAria}
                 onChange={(e) => setShippingRegion(e.target.value as ShippingRegion)}
                 className="mt-1 w-full min-w-[12rem] rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/35 sm:mt-0"
               >
-                {(Object.keys(SHIPPING_REGION_LABEL_VI) as ShippingRegion[]).map((k) => (
+                {(["VN", "ASIA", "EUROPE", "USA"] as const satisfies readonly ShippingRegion[]).map((k) => (
                   <option key={k} value={k}>
-                    {SHIPPING_REGION_LABEL_VI[k]}
+                    {shippingRegionLabel(k, locale)}
                   </option>
                 ))}
               </select>
@@ -600,9 +621,9 @@ export function QuoteEstimatorClient() {
           </div>
           {displayCurrency === "USD" && exchangeSource ? (
             <p className="w-full text-[11px] leading-snug text-zinc-600">
-              Tỷ giá tham chiếu USD từ{" "}
+              {c.exchangeNotePrefix}
               <span className="font-mono text-emerald-500/80">{exchangeSource}</span> (~{vndPerUsd.toLocaleString("vi-VN")}{" "}
-              ₫/USD) — chỉ mang tính minh họa.
+              ₫/USD){c.exchangeNoteSuffix}
             </p>
           ) : null}
         </div>
@@ -637,6 +658,7 @@ export function QuoteEstimatorClient() {
                     isBusy={storageBadgeBusy}
                     stlSaved={storageStSaved}
                     previewSaved={storagePreviewSaved}
+                    copy={c}
                   />
                 </div>
                 <button
@@ -648,11 +670,11 @@ export function QuoteEstimatorClient() {
                   disabled={isSlicing || isRescaling}
                   className="shrink-0 rounded-lg border border-emerald-500/50 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-emerald-200 transition hover:border-emerald-400 hover:bg-zinc-800 hover:text-emerald-100 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Báo giá mẫu khác
+                  {c.uploadOtherFile}
                 </button>
               </div>
               <p className="mt-1.5 text-center text-[11px] text-zinc-500">
-                Kéo thả STL vào khung trên hoặc bấm &quot;Báo giá mẫu khác&quot; · tối đa 50 MB
+                {c.uploadHintCompact}
               </p>
             </motion.div>
           ) : (
@@ -680,10 +702,10 @@ export function QuoteEstimatorClient() {
                   <Upload className="h-7 w-7" aria-hidden />
                 </div>
                 <p className="mt-4 text-center text-sm font-medium text-zinc-100">
-                  {isDragActive ? "Thả file STL vào đây" : "Kéo thả file STL hoặc bấm để chọn"}
+                  {isDragActive ? c.dropHere : c.dropChoose}
                 </p>
                 <p className="mt-1 text-center text-xs text-zinc-500">
-                  Tối đa 50 MB · chỉ định dạng .stl · hệ thống sẽ tự slice và ước tính giá
+                  {c.uploadSub}
                 </p>
               </div>
             </motion.div>
@@ -720,39 +742,38 @@ export function QuoteEstimatorClient() {
                   </div>
                   {modelScale !== MODEL_SCALE_DEFAULT ? (
                     <p className="text-center text-[11px] leading-snug text-zinc-500">
-                      Ảnh là file gốc đã tải; giá và kích thước bên dưới theo tỷ lệ{" "}
+                      {c.previewScaleCaptionBefore}
                       <span className="font-semibold text-zinc-400">
                         {(clampUniformModelScale(modelScale) * 100).toFixed(0)}%
                       </span>
-                      .
+                      {c.previewScaleCaptionAfter}
                     </p>
                   ) : null}
                 </div>
               ) : previewGenerating ? (
                 <PreviewGeneratingPlaceholder
-                  headline="Generating 3D Preview…"
-                  subline="Đang lấy metadata slicer và dựng ảnh xem trước…"
+                  headline={c.previewHeadlineGenerating}
+                  subline={c.previewSubSlicer}
                 />
               ) : previewStatus === "error" ? (
                 <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-700 bg-zinc-900/40 px-4 text-center text-sm text-zinc-400">
-                  <p>Ảnh xem trước chưa sẵn sàng.</p>
+                  <p>{c.previewErrorTitle}</p>
                   <p className="text-xs text-zinc-500">
-                    Ảnh không hiển thị được hoặc máy chủ chưa cấu hình bộ dựng thumbnail. Báo giá bên vẫn dùng
-                    metadata đã nhận.
+                    {c.previewErrorBody}
                   </p>
                 </div>
               ) : (
                 <div className="flex min-h-[200px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-700 px-4 py-6 text-center">
-                  <p className="text-sm font-medium text-zinc-400">Chưa có ảnh xem trước 3D</p>
+                  <p className="text-sm font-medium text-zinc-400">{c.previewMissingTitle}</p>
                   <p className="max-w-md text-xs leading-relaxed text-zinc-500">
-                    Ảnh được tạo bởi dịch vụ <span className="text-zinc-400">thumb-service</span> (FastAPI), không
-                    phải slicer. Khi chạy <span className="text-zinc-400">next dev</span> trên máy, đặt{" "}
+                    {c.previewMissingBodyBefore}
+                    <span className="text-zinc-400">thumb-service</span> (FastAPI).{" "}
                     <code className="rounded bg-zinc-800 px-1 py-0.5 text-[11px] text-emerald-400/90">
-                      STL2THUMB_SERVICE_URL=http://127.0.0.1:8887
-                    </code>{" "}
-                    nếu API thumbnail chạy cổng 8887; trong Docker Compose dùng{" "}
+                      {c.previewMissingCodeDev}
+                    </code>
+                    {c.previewMissingAfter}
                     <code className="rounded bg-zinc-800 px-1 py-0.5 text-[11px] text-emerald-400/90">
-                      http://thumb-service:8887
+                      {c.previewMissingCodeDocker}
                     </code>
                     .
                   </p>
@@ -770,9 +791,8 @@ export function QuoteEstimatorClient() {
               <p className="flex gap-2 rounded-xl border border-amber-500/20 bg-amber-950/25 px-3 py-2 text-xs leading-relaxed text-amber-100/90">
                 <Info className="mt-0.5 h-4 w-4 shrink-0 opacity-80" aria-hidden />
                 <span>
-                  <strong className="font-semibold">Xem trước (beta):</strong> chất lượng hình ảnh có thể
-                  chưa tốt; đây chỉ là minh họa từ geometry STL,{" "}
-                  <strong className="font-semibold">không phải thành phẩm in</strong> thực tế.
+                  <strong className="font-semibold">{c.previewBetaLead}</strong>
+                  {c.previewBetaRest}
                 </span>
               </p>
 
@@ -785,6 +805,7 @@ export function QuoteEstimatorClient() {
                     isBusy={storageBadgeBusy}
                     stlSaved={storageStSaved}
                     previewSaved={storagePreviewSaved}
+                    copy={c}
                   />
                 </div>
                 <ul className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -801,7 +822,7 @@ export function QuoteEstimatorClient() {
                           <Ruler className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Kích thước (XYZ) {lengthDisplay === "imperial_in" ? "· in" : "· mm"}
+                              {c.dimLabelXYZ}{lengthDisplay === "imperial_in" ? c.dimImperialSuffix : c.dimMetricSuffix}
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
                               {formatDimensionsXYZ(
@@ -817,7 +838,7 @@ export function QuoteEstimatorClient() {
                           <Clock className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Thời gian in (ước tính)
+                              {c.printTimeLabel}
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
                               {metadata.estimated_print_time || "—"}
@@ -828,7 +849,7 @@ export function QuoteEstimatorClient() {
                           <Box className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Độ dài nhựa đùn (1 mẫu)
+                              {c.filamentLabel}
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
                               {formatFilamentLength(metadata.filament_used_mm, lengthDisplay)}
@@ -839,7 +860,7 @@ export function QuoteEstimatorClient() {
                           <Weight className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" aria-hidden />
                           <div>
                             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Khối lượng ước tính (1 mẫu)
+                              {c.weightLabel}
                             </p>
                             <p className="text-sm font-semibold text-zinc-100">
                               {cost ? `${unitWeightGramsCeil} g (${material})` : "—"}
@@ -855,43 +876,36 @@ export function QuoteEstimatorClient() {
             <aside className="space-y-6 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-6">
               <div className="rounded-xl border border-zinc-700/80 bg-zinc-950/40 p-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-400/90">
-                  Giảm giá số lượng (B2B)
+                  {c.bulkTitle}
                 </p>
                 <ul className="mt-2 space-y-1 text-xs leading-relaxed text-zinc-400">
-                  <li>
-                    <span className="tabular-nums font-medium text-zinc-200">10–50</span> mắt nhắt: −5%
-                  </li>
-                  <li>
-                    <span className="tabular-nums font-medium text-zinc-200">51–200</span> mắt nhắt: −15%
-                  </li>
-                  <li>
-                    Trên <span className="tabular-nums font-medium text-zinc-200">200</span> mắt nhắt: liên hệ báo giá
-                    chính thức
-                  </li>
-                  <li>
-                    Trên <span className="tabular-nums font-medium text-zinc-200">500</span> mắt nhắt: RFQ + tài liệu
-                    kỹ thuật
-                  </li>
+                  <li>{c.bulkLine510}</li>
+                  <li>{c.bulkLine51200}</li>
+                  <li>{c.bulkLine200}</li>
+                  <li>{c.bulkLine500}</li>
                 </ul>
               </div>
               <p className="text-xs leading-relaxed text-zinc-400">
-                Mẹo nhanh: chọn{" "}
-                <span className="font-semibold text-zinc-200">Sinh viên</span> để xem giá ưu đãi; chọn nhựa kỹ thuật
-                như <span className="font-semibold text-zinc-200">PETG-CF</span> khi cần chi tiết chịu lực/nhiệt (
-                <span className="font-semibold text-zinc-200">máy buồng kín</span>).
+                {c.bulkTipLead}
+                <span className="font-semibold text-zinc-200">{c.bulkTipStudent}</span>
+                {c.bulkTipMid}
+                <span className="font-semibold text-zinc-200">{c.bulkTipMaterial}</span>
+                {c.bulkTipChamber}
+                <span className="font-semibold text-zinc-200">{c.bulkTipChamberName}</span>
+                {c.bulkTipEnd}
               </p>
               {metadata ? (
                 <div>
                   <div className="flex items-center gap-2">
                     <Scaling className="h-4 w-4 shrink-0 text-emerald-500" aria-hidden />
                     <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Tỷ lệ mô hình (hộp giới hạn)
+                      {c.scaleHeading}
                     </p>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <input
                       type="range"
-                      aria-label="Tỷ lệ mô hình"
+                      aria-label={c.scaleAria}
                       min={MODEL_SCALE_MIN}
                       max={MODEL_SCALE_MAX}
                       step={MODEL_SCALE_STEP}
@@ -908,7 +922,7 @@ export function QuoteEstimatorClient() {
               ) : null}
 
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Đối tượng</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{c.audienceHeading}</p>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -920,7 +934,7 @@ export function QuoteEstimatorClient() {
                         : "border border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-emerald-500/40",
                     ].join(" ")}
                   >
-                    Người dùng thường
+                    {c.audienceGeneral}
                   </button>
                   <button
                     type="button"
@@ -932,12 +946,12 @@ export function QuoteEstimatorClient() {
                         : "border border-zinc-700 bg-zinc-950 text-zinc-200 hover:border-emerald-500/40",
                     ].join(" ")}
                   >
-                    Sinh viên
+                    {c.audienceStudent}
                   </button>
                 </div>
                 {isStudent && !promoOn ? (
                   <p className="mt-2 text-xs text-amber-400/90">
-                    Giá ưu đãi sinh viên (trong đợt khuyến mãi) có thể chưa áp dụng theo ngày.
+                    {c.audienceStudentNote}
                   </p>
                 ) : null}
               </div>
@@ -948,17 +962,17 @@ export function QuoteEstimatorClient() {
                     id="quote-material-label"
                     className="text-xs font-medium uppercase tracking-wide text-zinc-500"
                   >
-                    Loại nhựa
+                    {c.materialHeading}
                   </p>
                   <Link
-                    href="/materials"
+                    href={materialsHref}
                     className="text-xs font-semibold text-emerald-400 underline-offset-2 hover:text-emerald-300 hover:underline"
                   >
-                    Hướng dẫn chi tiết
+                    {c.materialGuideLink}
                   </Link>
                 </div>
                 <p className="mt-1 text-[11px] leading-snug text-zinc-600 md:hidden">
-                  Chạm giữ chip nhựa hoặc bấm biểu tượng trợ giúp bên cạnh để xem gợi ý nhanh.
+                  {c.materialHintMobile}
                 </p>
                 <div
                   className="mt-2 flex flex-wrap gap-3 overflow-visible"
@@ -971,17 +985,18 @@ export function QuoteEstimatorClient() {
                       material={m}
                       selected={material === m}
                       onSelect={() => setMaterial(m)}
+                      locale={locale}
                     />
                   ))}
                 </div>
               </div>
 
               <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Số lượng</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">{c.qtyHeading}</p>
                 <div className="mt-2 flex max-w-[240px] items-stretch gap-0 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-950">
                   <button
                     type="button"
-                    aria-label="Giảm số lượng"
+                    aria-label={c.qtyDecAria}
                     disabled={quantity <= 1}
                     onClick={() => bumpQuantity(-1)}
                     className="flex w-11 shrink-0 items-center justify-center border-r border-zinc-700 text-zinc-100 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-35"
@@ -999,7 +1014,7 @@ export function QuoteEstimatorClient() {
                   />
                   <button
                     type="button"
-                    aria-label="Tăng số lượng"
+                    aria-label={c.qtyIncAria}
                     disabled={quantity >= MAX_QUANTITY}
                     onClick={() => bumpQuantity(1)}
                     className="flex w-11 shrink-0 items-center justify-center border-l border-zinc-700 text-zinc-100 transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-35"
@@ -1008,14 +1023,14 @@ export function QuoteEstimatorClient() {
                   </button>
                 </div>
                 <p className="mt-1 text-xs text-zinc-500">
-                  Tối thiểu {DEFAULT_QUANTITY} · tối đa {MAX_QUANTITY}
+                  {quoteQtyRangeHint(locale, DEFAULT_QUANTITY, MAX_QUANTITY)}
                 </p>
               </div>
 
               {cost && quoteTotals ? (
                 <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4">
                   <p className="text-xs font-medium uppercase tracking-wide text-emerald-300/90">
-                    Ước tính giá in (Tổng)
+                    {c.priceTotalHeading}
                   </p>
                   <p className="mt-1 text-2xl font-bold tracking-tight text-emerald-50">
                     {quotePriceLines?.total.primary ?? vnd.format(quoteTotals.totalVnd)}
@@ -1026,11 +1041,16 @@ export function QuoteEstimatorClient() {
                     </p>
                   ) : null}
                   <p className="mt-2 text-sm font-medium tabular-nums text-emerald-100/85">
-                    {formatVndPlain(cost.totalVnd)} × {quoteTotals.qty} = {formatVndPlain(quoteTotals.lineSubtotal)}
+                    {formatVndPlain(cost.totalVnd)}
+                    {c.lineEquation}
+                    {quoteTotals.qty} = {formatVndPlain(quoteTotals.lineSubtotal)}
                   </p>
                   {quoteTotals.bulkTier.kind === "percent" && quoteTotals.lineSubtotal !== quoteTotals.bulkAdjustedSubtotal ? (
                     <p className="mt-1 text-xs text-emerald-200/85">
-                      Sau giảm số lượng ({quoteTotals.bulkTier.labelVi}):{" "}
+                      {c.afterBulk.replace(
+                        "{tier}",
+                        bulkTierLabel(quoteTotals.bulkTier, locale) ?? "",
+                      )}{" "}
                       <span className="font-semibold tabular-nums">
                         {quotePriceLines?.afterBulk?.primary ?? formatVndPlain(quoteTotals.bulkAdjustedSubtotal)}
                       </span>
@@ -1046,7 +1066,7 @@ export function QuoteEstimatorClient() {
                     <p className="mt-2 flex items-start gap-2 text-xs leading-relaxed text-zinc-300">
                       <Ship className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400/80" aria-hidden />
                       <span>
-                        Phí vận chuyển quốc tế (ước tính, không gồm thuế HQ):{" "}
+                        {c.intlFreightLead}{" "}
                         <strong className="tabular-nums text-zinc-100">
                           {usdMoney.format(intlFreightUsd)}
                         </strong>
@@ -1054,14 +1074,15 @@ export function QuoteEstimatorClient() {
                           <>
                             {" "}
                             <span className="text-zinc-500">
-                              ≈ {formatVndPlain(Math.round(intlFreightUsd * vndPerUsd))}
+                              {c.intlFreightTaxNote}
+                              {formatVndPlain(Math.round(intlFreightUsd * vndPerUsd))}
                             </span>
                           </>
                         ) : null}
                       </span>
                     </p>
                   ) : shippingRegion !== "VN" ? (
-                    <p className="mt-2 text-xs text-zinc-500">Nhập file để ước tính khối lượng cho phí quốc tế.</p>
+                    <p className="mt-2 text-xs text-zinc-500">{c.intlFreightNeedFile}</p>
                   ) : null}
                   {floorExplanation ? (
                     <p
@@ -1077,8 +1098,7 @@ export function QuoteEstimatorClient() {
                   ) : null}
                   {cost.isStudentDiscountApplied ? (
                     <p className="mt-2 text-xs text-emerald-200/80">
-                      Giá 1 mẫu: áp dụng {cost.discountedGrams.toFixed(0)} g theo giá sinh viên trong đợt
-                      khuyến mãi (trên 1 mẫu).
+                      {c.studentDiscountLine.replace("{grams}", cost.discountedGrams.toFixed(0))}
                     </p>
                   ) : null}
                 </div>
@@ -1093,7 +1113,7 @@ export function QuoteEstimatorClient() {
                     className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-zinc-950 shadow-sm shadow-emerald-500/25 transition hover:bg-emerald-400"
                     onClick={() => setRfqOpen(true)}
                   >
-                    Gửi RFQ (trên 500 mắt nhắt)
+                    {c.rfqCta}
                   </button>
                 ) : showQuoteCheckout && cost && quoteTotals ? (
                   <button
@@ -1102,19 +1122,19 @@ export function QuoteEstimatorClient() {
                     onClick={() => setCheckoutOpen(true)}
                     className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-zinc-950 shadow-sm shadow-emerald-500/25 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Đặt in ngay
+                    {c.orderNow}
                   </button>
                 ) : quoteTotals ? (
                   <Link
                     href={orderLinkHref}
                     className="inline-flex w-full items-center justify-center rounded-xl bg-emerald-500 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-400"
                   >
-                    Đặt in mẫu này
+                    {c.orderSample}
                   </Link>
                 ) : null}
                 {!FEATURES.ORDER_ENABLED || !FEATURES.AUTH_ENABLED ? (
                   <div className="space-y-2 text-center text-xs text-zinc-400">
-                    <p>Đặt hàng trực tuyến đang tắt — vui lòng liên hệ:</p>
+                    <p>{c.orderDisabledLead}</p>
                     <p className="flex flex-col items-center gap-1 sm:flex-row sm:justify-center sm:gap-x-4 sm:gap-y-0">
                       <a
                         href={OFFLINE_ORDER_CONTACT.zaloTelHref}
@@ -1135,19 +1155,19 @@ export function QuoteEstimatorClient() {
                       </a>
                     </p>
                     <p className="text-zinc-500">
-                      Ghi chú báo giá: số lượng {quoteTotals?.qty ?? "—"}, khối lượng tổng ~
+                      {c.orderNoteLead}
+                      {quoteTotals?.qty ?? "—"}
+                      {c.orderNoteWeight}
                       {cost ? `${totalWeightGrams} g` : "…"} ({material}
-                      {quoteTotals?.floorApplied
-                        ? `, tổng thanh toán tối thiểu ${vnd.format(quoteTotals.totalVnd)}`
-                        : ""}
-                      ).
+                      {quoteTotals?.floorApplied ? `${c.orderNoteFloor}${vnd.format(quoteTotals.totalVnd)}` : ""}).
                     </p>
                   </div>
                 ) : (
                   <p className="text-center text-xs text-zinc-500">
-                    Mở form đặt hàng trên trang chủ; tham khảo tổng khối lượng ~
-                    {cost ? `${totalWeightGrams} g` : "…"} ({unitWeightGramsCeil} g/mẫu ×{" "}
-                    {quoteTotals?.qty ?? "—"}), tổng tiền ước tính{" "}
+                    {c.orderEnabledHint}
+                    {cost ? `${totalWeightGrams} g` : "…"} ({unitWeightGramsCeil}{" "}
+                    {c.orderHomePerPartSuffix}{" "}
+                    {quoteTotals?.qty ?? "—"}), {c.orderHomeTotalLead}{" "}
                     {quoteTotals ? vnd.format(quoteTotals.totalVnd) : "—"}.
                   </p>
                 )}
@@ -1160,7 +1180,7 @@ export function QuoteEstimatorClient() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
             </span>
-            <span className="text-xs font-medium text-zinc-400">Xưởng đang hoạt động</span>
+            <span className="text-xs font-medium text-zinc-400">{c.footerWorkshopLive}</span>
           </footer>
         </motion.section>
       ) : null}
@@ -1169,11 +1189,13 @@ export function QuoteEstimatorClient() {
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         quotePayload={checkoutPayload}
+        locale={locale}
       />
       <QuoteBulkRfqModal
         open={rfqOpen}
         onClose={() => setRfqOpen(false)}
         defaultQuantity={quoteTotals && quoteTotals.qty > 500 ? quoteTotals.qty : 501}
+        locale={locale}
       />
       </div>
     </LayoutGroup>

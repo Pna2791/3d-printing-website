@@ -3,13 +3,53 @@
 import { Loader2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 
+import { naLocaleHeaders, type NaLocale } from "@/lib/quote-paths";
+
 type QuoteBulkRfqModalProps = {
   open: boolean;
   onClose: () => void;
   defaultQuantity?: number;
+  locale?: NaLocale;
 };
 
-export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: QuoteBulkRfqModalProps) {
+function rfqCopy(locale: NaLocale) {
+  const en = locale === "en";
+  return {
+    close: en ? "Close" : "Đóng",
+    closeFormAria: en ? "Close form" : "Đóng form",
+    title: en ? "High-volume RFQ" : "Yêu cầu báo giá số lượng lớn (RFQ)",
+    qtyInvalid: en ? "Quantity must be greater than 500." : "Số lượng RFQ phải lớn hơn 500.",
+    nameInvalid: en ? "Please enter a valid name." : "Vui lòng nhập họ tên hợp lệ.",
+    emailInvalid: en ? "Email is not valid." : "Email không hợp lệ.",
+    network: en ? "Network issue — try again." : "Lỗi mạng — thử lại sau.",
+    intro: en
+      ? "For orders above 500 pcs attach drawings (STEP/STL/PDF), tolerances, finishes, and shipment notes."
+      : "Áp dụng khi đơn > 500 mắt nhắt. Đính kèm bản vẽ (STEP/STL/PDF) và yêu cầu chi tiết (dung sai, màu, hoàn thiện bề mặt…).",
+    name: en ? "Full name *" : "Họ tên *",
+    email: en ? "Email *" : "Email *",
+    phone: en ? "Phone" : "Điện thoại",
+    company: en ? "Company" : "Công ty",
+    qty: en ? "Estimated qty *" : "Số lượng dự kiến *",
+    tech: en ? "Technical requirements" : "Yêu cầu kỹ thuật",
+    techPh: en ? "e.g. PETG-CF, matte finish, warp control…" : "VD: PETG-CF, độ bóng nhám, không cong biên...",
+    files: en
+      ? "Attachments (max 5 files, STL/STEP/PDF/images/ZIP — 15 MB each)"
+      : "Tài liệu đính kèm (tối đa 5 file, STL/STEP/PDF/ảnh/ZIP — mỗi file ≤ 15 MB)",
+    sending: en ? "Sending…" : "Đang gửi…",
+    submit: en ? "Send RFQ" : "Gửi RFQ",
+    success: en
+      ? "RFQ submitted. NA 3D SHOP — Global Support replies within 1–2 business days (pricing may require file review)."
+      : "Đã gửi RFQ. Xưởng NA 3D SHOP sẽ phản hồi trong 1–2 ngày làm việc (kỹ thuật + giá có thể cần rà file).",
+  };
+}
+
+export function QuoteBulkRfqModal({
+  open,
+  onClose,
+  defaultQuantity = 501,
+  locale = "vi",
+}: QuoteBulkRfqModalProps) {
+  const t = rfqCopy(locale);
   const titleId = useId();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -21,6 +61,7 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
   const [clientError, setClientError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  const [successLine, setSuccessLine] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) setQuantity(String(Math.max(defaultQuantity, 501)));
@@ -36,6 +77,7 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
     setClientError(null);
     setSubmitting(false);
     setSent(false);
+    setSuccessLine(null);
   }, []);
 
   useEffect(() => {
@@ -47,15 +89,15 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
     setClientError(null);
     const q = Number.parseInt(quantity, 10);
     if (!Number.isFinite(q) || q <= 500) {
-      setClientError("Số lượng RFQ phải lớn hơn 500.");
+      setClientError(t.qtyInvalid);
       return;
     }
     if (!name.trim() || name.trim().length > 160) {
-      setClientError("Vui lòng nhập họ tên hợp lệ.");
+      setClientError(t.nameInvalid);
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setClientError("Email không hợp lệ.");
+      setClientError(t.emailInvalid);
       return;
     }
 
@@ -74,15 +116,20 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
         }
       }
 
-      const res = await fetch("/api/rfq/bulk-upload", { method: "POST", body: fd });
-      const data = (await res.json()) as { ok?: boolean; error?: string };
+      const res = await fetch("/api/rfq/bulk-upload", {
+        method: "POST",
+        body: fd,
+        headers: naLocaleHeaders(locale),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !data.ok) {
-        setClientError(data.error ?? `Lỗi ${res.status}`);
+        setClientError(data.error ?? `${locale === "en" ? "Error " : "Lỗi "}${res.status}`);
         return;
       }
+      setSuccessLine(typeof data.message === "string" && data.message.trim() ? data.message : t.success);
       setSent(true);
     } catch {
-      setClientError("Lỗi mạng — thử lại sau.");
+      setClientError(t.network);
     } finally {
       setSubmitting(false);
     }
@@ -94,7 +141,7 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
     <div className="fixed inset-0 z-[220] flex items-end justify-center p-4 sm:items-center">
       <button
         type="button"
-        aria-label="Đóng"
+        aria-label={t.close}
         className="absolute inset-0 bg-black/70 backdrop-blur-[2px]"
         onClick={() => {
           if (!submitting) onClose();
@@ -108,14 +155,14 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
       >
         <div className="flex items-center justify-between border-b border-zinc-800 px-4 py-3">
           <h2 id={titleId} className="text-lg font-semibold text-zinc-50">
-            Yêu cầu báo giá số lượng lớn (RFQ)
+            {t.title}
           </h2>
           <button
             type="button"
             disabled={submitting}
             onClick={onClose}
             className="rounded-lg p-1.5 text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-40"
-            aria-label="Đóng form"
+            aria-label={t.closeFormAria}
           >
             <X className="h-5 w-5" />
           </button>
@@ -124,26 +171,22 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
         {sent ? (
           <div className="space-y-3 px-4 py-6 sm:px-6">
             <p className="text-sm leading-relaxed text-emerald-100/95">
-              Đã gửi RFQ. Xưởng <span className="font-semibold text-emerald-400">NA 3D SHOP</span> sẽ phản hồi trong
-              1–2 ngày làm việc (kỹ thuật + giá có thể cần rà file).
+              {successLine ?? t.success}
             </p>
             <button
               type="button"
               onClick={onClose}
               className="w-full rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-emerald-400"
             >
-              Đóng
+              {t.close}
             </button>
           </div>
         ) : (
           <form onSubmit={onSubmit} className="space-y-3 px-4 py-4 sm:px-6 sm:py-5">
-            <p className="text-xs leading-relaxed text-zinc-500">
-              Áp dụng khi đơn &gt; 500 mắt nhắt. Đính kèm bản vẽ (STEP/STL/PDF) và yêu cầu chi tiết (dung sai, màu, hoàn
-              thiện bề mặt…).
-            </p>
+            <p className="text-xs leading-relaxed text-zinc-500">{t.intro}</p>
             <div className="grid gap-2 sm:grid-cols-2">
               <label className="space-y-1 text-xs font-medium text-zinc-400">
-                Họ tên *
+                {t.name}
                 <input
                   required
                   value={name}
@@ -153,7 +196,7 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
                 />
               </label>
               <label className="space-y-1 text-xs font-medium text-zinc-400">
-                Email *
+                {t.email}
                 <input
                   required
                   type="email"
@@ -164,7 +207,7 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
                 />
               </label>
               <label className="space-y-1 text-xs font-medium text-zinc-400">
-                Điện thoại
+                {t.phone}
                 <input
                   value={phone}
                   maxLength={40}
@@ -173,7 +216,7 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
                 />
               </label>
               <label className="space-y-1 text-xs font-medium text-zinc-400">
-                Công ty
+                {t.company}
                 <input
                   value={company}
                   maxLength={200}
@@ -183,7 +226,7 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
               </label>
             </div>
             <label className="block space-y-1 text-xs font-medium text-zinc-400">
-              Số lượng dự kiến *
+              {t.qty}
               <input
                 required
                 type="number"
@@ -195,18 +238,18 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
               />
             </label>
             <label className="block space-y-1 text-xs font-medium text-zinc-400">
-              Yêu cầu kỹ thuật
+              {t.tech}
               <textarea
                 value={requirements}
                 onChange={(e) => setRequirements(e.target.value)}
                 rows={4}
                 maxLength={12000}
-                placeholder="VD: PETG-CF, độ bóng nhám, không cong biên..."
+                placeholder={t.techPh}
                 className="mt-1 w-full resize-y rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/40"
               />
             </label>
             <label className="block space-y-1 text-xs font-medium text-zinc-400">
-              Tài liệu đính kèm (tối đa 5 file, STL/STEP/PDF/ảnh/ZIP — mỗi file ≤ 15 MB)
+              {t.files}
               <input
                 type="file"
                 multiple
@@ -228,10 +271,10 @@ export function QuoteBulkRfqModal({ open, onClose, defaultQuantity = 501 }: Quot
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                  Đang gửi…
+                  {t.sending}
                 </>
               ) : (
-                "Gửi RFQ"
+                t.submit
               )}
             </button>
           </form>

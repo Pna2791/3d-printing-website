@@ -15,6 +15,9 @@ export function getSiteUrl(): string {
 /** Slug SEO tiếng Việt cho trang báo giá (canonical chính). */
 export const QUOTE_SEO_PATH = "/bao-gia-in-3d" as const;
 
+/** English App Router slug — must match `lib/quote-paths` for hreflang & toggles. */
+export const QUOTE_EN_SEO_PATH = "/en/3d-printing-quote" as const;
+
 /**
  * URL tuyệt đối canonical cho trang báo giá (ưu tiên env, mặc định na3d.shop theo domain chính).
  * Dùng chung cho `/quote` và `/bao-gia-in-3d` để trỏ về một phiên bản duy nhất.
@@ -23,6 +26,11 @@ export function getQuoteCanonicalUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_QUOTE_CANONICAL_URL?.trim();
   if (explicit) return explicit.replace(/\/$/, "");
   return `https://na3d.shop${QUOTE_SEO_PATH}`;
+}
+
+export function getEnglishQuoteCanonicalUrl(): string {
+  const base = getSiteUrl().replace(/\/$/, "");
+  return `${base}${QUOTE_EN_SEO_PATH}`;
 }
 
 /** Tên thương hiệu hiển thị SEO & UI (đồng bộ metadata). */

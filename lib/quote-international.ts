@@ -1,3 +1,5 @@
+import type { NaLocale } from "@/lib/quote-paths";
+
 /** Destination bucket for illustrative international freight (not customs/duties). */
 export type ShippingRegion = "VN" | "ASIA" | "EUROPE" | "USA";
 
@@ -7,6 +9,17 @@ export const SHIPPING_REGION_LABEL_VI: Record<ShippingRegion, string> = {
   EUROPE: "Châu Âu",
   USA: "Hoa Kỳ",
 };
+
+export const SHIPPING_REGION_LABEL_EN: Record<ShippingRegion, string> = {
+  VN: "Vietnam (COD)",
+  ASIA: "Asia",
+  EUROPE: "Europe",
+  USA: "United States",
+};
+
+export function shippingRegionLabel(region: ShippingRegion, locale: NaLocale): string {
+  return locale === "en" ? SHIPPING_REGION_LABEL_EN[region] : SHIPPING_REGION_LABEL_VI[region];
+}
 
 /**
  * Rough tiers (USD) for air/courier illustrative quotes from Vietnam — adjust via env-backed numbers later.
@@ -32,8 +45,13 @@ export function estimateIntlShippingUsd(weightGramsTotal: number, region: Shippi
 
 export type BulkDiscountTier =
   | { kind: "none" }
-  | { kind: "percent"; pct: number; labelVi: string }
-  | { kind: "manual_quote"; labelVi: string };
+  | { kind: "percent"; pct: number; labelVi: string; labelEn: string }
+  | { kind: "manual_quote"; labelVi: string; labelEn: string };
+
+export function bulkTierLabel(tier: BulkDiscountTier, locale: NaLocale): string | null {
+  if (tier.kind === "none") return null;
+  return locale === "en" ? tier.labelEn : tier.labelVi;
+}
 
 /**
  * Bulk rules: 10–50 → −5%; 51–200 → −15%; 200+ → contact (no auto %); >500 → RFQ form.
@@ -41,9 +59,25 @@ export type BulkDiscountTier =
 export function bulkTierForQty(qty: number): BulkDiscountTier {
   const q = Math.floor(Number.isFinite(qty) ? qty : 0);
   if (q < 10) return { kind: "none" };
-  if (q <= 50) return { kind: "percent", pct: 5, labelVi: "Giảm 5% (10–50 mắt nhắt)" };
-  if (q <= 200) return { kind: "percent", pct: 15, labelVi: "Giảm 15% (51–200 mắt nhắt)" };
-  return { kind: "manual_quote", labelVi: "Đơn từ trên 200 mắt nhắt — vui lòng liên hệ báo giá chính thức" };
+  if (q <= 50)
+    return {
+      kind: "percent",
+      pct: 5,
+      labelVi: "Giảm 5% (10–50 mắt nhắt)",
+      labelEn: "5% off (10–50 pcs)",
+    };
+  if (q <= 200)
+    return {
+      kind: "percent",
+      pct: 15,
+      labelVi: "Giảm 15% (51–200 mắt nhắt)",
+      labelEn: "15% off (51–200 pcs)",
+    };
+  return {
+    kind: "manual_quote",
+    labelVi: "Đơn từ trên 200 mắt nhắt — vui lòng liên hệ báo giá chính thức",
+    labelEn: "Orders over 200 pcs — contact us for a formal quotation",
+  };
 }
 
 export function applyBulkPctToSubtotal(subtotalVnd: number, tier: BulkDiscountTier): number {

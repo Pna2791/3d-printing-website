@@ -2,6 +2,8 @@
 
 import { motion } from "framer-motion";
 
+import type { AppLocale } from "@/lib/i18n-dictionary";
+import { getDictionary } from "@/lib/i18n-dictionary";
 import type { MaterialWithPricing } from "@/lib/supabase/types";
 import {
   PRICE_BEFORE_DISCOUNT,
@@ -12,11 +14,13 @@ import {
 } from "@/lib/pricing";
 
 type PricingPreviewProps = {
+  locale: AppLocale;
   materials: MaterialWithPricing[];
   onOpenPricing: () => void;
 };
 
-export function PricingPreview({ materials, onOpenPricing }: PricingPreviewProps) {
+export function PricingPreview({ locale, materials, onOpenPricing }: PricingPreviewProps) {
+  const p = getDictionary(locale).home.pricingPreview;
   const promoActive = isStudentPromoActive();
   const pla = calculateMaterialPrice({
     material: "PLA",
@@ -47,20 +51,22 @@ export function PricingPreview({ materials, onOpenPricing }: PricingPreviewProps
     ? "font-semibold text-emerald-700 dark:text-emerald-300"
     : "font-semibold text-zinc-500 dark:text-zinc-400";
 
+  const kgMonthly = String(STUDENT_PROMO.firstDiscountGrams / 1000);
+  const footnoteBody =
+    p.footnote.replace("{kg}", kgMonthly) + (!hasData ? p.footnoteNoServerData : "");
+
   return (
     <section>
-      <h2 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-        Bảng giá nhanh
-      </h2>
+      <h2 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">{p.title}</h2>
 
       <div className="mt-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-zinc-50 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
               <tr>
-                <th className="px-4 py-3 font-semibold">Vật liệu</th>
-                <th className="px-4 py-3 font-semibold">Giá thường</th>
-                <th className="px-4 py-3 font-semibold">Giá sinh viên</th>
+                <th className="px-4 py-3 font-semibold">{p.columnMaterial}</th>
+                <th className="px-4 py-3 font-semibold">{p.columnRegular}</th>
+                <th className="px-4 py-3 font-semibold">{p.columnStudent}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -95,7 +101,7 @@ export function PricingPreview({ materials, onOpenPricing }: PricingPreviewProps
                     <span className={afterDiscountClasses}>{PRICING_RULES.PLA.studentVndPerGram}đ/g</span>
                   )}
                   <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                    Sinh viên
+                    {p.studentBadge}
                   </span>
                 </td>
               </tr>
@@ -113,7 +119,7 @@ export function PricingPreview({ materials, onOpenPricing }: PricingPreviewProps
                   </span>
                   <span className={afterDiscountClasses}>{PRICING_RULES.PETG.studentVndPerGram}đ/g</span>
                   <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                    Sinh viên
+                    {p.studentBadge}
                   </span>
                 </td>
               </tr>
@@ -131,7 +137,7 @@ export function PricingPreview({ materials, onOpenPricing }: PricingPreviewProps
                   </span>
                   <span className={afterDiscountClasses}>{PRICING_RULES["PETG-CF"].studentVndPerGram}đ/g</span>
                   <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                    Sinh viên
+                    {p.studentBadge}
                   </span>
                 </td>
               </tr>
@@ -149,25 +155,21 @@ export function PricingPreview({ materials, onOpenPricing }: PricingPreviewProps
                   </span>
                   <span className={afterDiscountClasses}>{PRICING_RULES.TPU.studentVndPerGram}đ/g</span>
                   <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                    Sinh viên
+                    {p.studentBadge}
                   </span>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">
-          Ưu đãi áp dụng cho tất cả mọi người. Giá sinh viên chỉ áp dụng
-          cho {STUDENT_PROMO.firstDiscountGrams / 1000}KG/tháng, phần vượt mức sẽ tính theo giá thường.
-          {!hasData ? " Dữ liệu Supabase hiện chưa có vật liệu, nhưng giá đã theo cấu hình mới." : ""}
-        </p>
+        <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">{footnoteBody}</p>
 
         <button
           type="button"
           onClick={onOpenPricing}
           className="mt-6 rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
         >
-          Xem bảng giá chi tiết
+          {p.viewDetail}
         </button>
       </div>
     </section>

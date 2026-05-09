@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { QuoteRoutePage } from "@/components/quote/QuoteRoutePage";
-import { getQuoteCanonicalUrl, SEO_KEYWORDS, SITE_BRAND } from "@/lib/seo";
+import { getQuoteCanonicalUrl, QUOTE_EN_SEO_PATH, SEO_KEYWORDS, SITE_BRAND } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +17,11 @@ export const metadata: Metadata = {
   keywords: [...SEO_KEYWORDS, "báo giá STL", "slice online", SITE_BRAND, "báo giá in 3D"],
   alternates: {
     canonical,
+    languages: {
+      "vi-VN": "/bao-gia-in-3d",
+      "en-US": QUOTE_EN_SEO_PATH,
+      "x-default": "/bao-gia-in-3d",
+    },
   },
   openGraph: {
     title: quoteSeoTitleAbsolute,

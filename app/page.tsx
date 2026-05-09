@@ -1,9 +1,8 @@
-import { readdir } from "node:fs/promises";
-import path from "node:path";
 import type { Metadata } from "next";
 
 import { HomeJsonLd } from "@/components/seo/HomeJsonLd";
 import { HomeLandingClient } from "@/components/landing/HomeLandingClient";
+import { getPrinterImagesForLocale, getShowcaseImagesForLocale } from "@/lib/home-static-assets";
 import { getSiteUrl, SEO_KEYWORDS, SITE_BRAND } from "@/lib/seo";
 import { getMaterialsWithPricing } from "@/services/materialService";
 import { getPrinters } from "@/services/printerService";
@@ -28,6 +27,7 @@ export const metadata: Metadata = {
     description: homeDescription,
     url: getSiteUrl(),
     type: "website",
+    locale: "vi_VN",
   },
   twitter: {
     title: homeTitle,
@@ -35,52 +35,13 @@ export const metadata: Metadata = {
   },
 };
 
-async function getShowcaseImagesFromPublic() {
-  const folderAbsolutePath = path.join(process.cwd(), "public", "printed");
-  try {
-    const names = await readdir(folderAbsolutePath, { withFileTypes: true });
-    const imageNames = names
-      .filter((entry) => entry.isFile())
-      .map((entry) => entry.name)
-      .filter((name) => /\.(png|jpe?g|webp|gif)$/i.test(name))
-      .sort((a, b) => a.localeCompare(b));
-
-    return imageNames.map((name) => ({
-      src: `/printed/${name}`,
-      alt: `Mẫu in 3D giá rẻ HCM ${name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")}`,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-async function getPrinterImagesFromPublic() {
-  const folderAbsolutePath = path.join(process.cwd(), "public", "printers");
-  try {
-    const names = await readdir(folderAbsolutePath, { withFileTypes: true });
-    const imageNames = names
-      .filter((entry) => entry.isFile())
-      .map((entry) => entry.name)
-      .filter((name) => /\.(png|jpe?g|webp|gif)$/i.test(name))
-      .sort((a, b) => a.localeCompare(b))
-      .slice(0, 2);
-
-    return imageNames.map((name) => ({
-      src: `/printers/${name}`,
-      alt: `Máy in 3D ${name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")}`,
-    }));
-  } catch {
-    return [];
-  }
-}
-
 export default async function Home() {
   const [workshopRes, materialsRes, printersRes, showcaseImages, printerImages] = await Promise.all([
     getWorkshopInfo(),
     getMaterialsWithPricing(),
     getPrinters(),
-    getShowcaseImagesFromPublic(),
-    getPrinterImagesFromPublic(),
+    getShowcaseImagesForLocale("vi"),
+    getPrinterImagesForLocale("vi"),
   ]);
 
   const workshopMap = Object.fromEntries((workshopRes.data ?? []).map((row) => [row.key, row.value]));
@@ -89,6 +50,7 @@ export default async function Home() {
     <>
       <HomeJsonLd email={workshopMap.contact_email} />
       <HomeLandingClient
+        locale="vi"
         workshopRows={workshopRes.data ?? []}
         workshopError={workshopRes.error}
         materials={materialsRes.data ?? []}

@@ -3,12 +3,8 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-const SHOWCASE_IMAGES = [
-  { src: "/sample1.jpg", alt: "Mẫu in 3D chi tiết cơ khí" },
-  { src: "/sample2.jpg", alt: "Mẫu in 3D màu cho sản phẩm trưng bày" },
-  { src: "/sample3.jpg", alt: "Máy in 3D đang hoạt động tại xưởng" },
-  { src: "/sample4.jpg", alt: "Sản phẩm in 3D hoàn thiện" },
-];
+import type { AppLocale } from "@/lib/i18n-dictionary";
+import { getDictionary } from "@/lib/i18n-dictionary";
 
 type ShowcaseItem = {
   src: string;
@@ -16,13 +12,15 @@ type ShowcaseItem = {
 };
 
 type ShowcaseSectionProps = {
+  locale: AppLocale;
   images?: ShowcaseItem[];
 };
 
-export function ShowcaseSection({ images = SHOWCASE_IMAGES }: ShowcaseSectionProps) {
-  const displayImages = images.length > 0 ? images : SHOWCASE_IMAGES;
+export function ShowcaseSection({ locale, images = [] }: ShowcaseSectionProps) {
+  const s = getDictionary(locale).home.showcase;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [previewImage, setPreviewImage] = useState<ShowcaseItem | null>(null);
+  const displayImages = images;
 
   const scrollByPage = (direction: "left" | "right") => {
     const container = scrollRef.current;
@@ -58,18 +56,20 @@ export function ShowcaseSection({ images = SHOWCASE_IMAGES }: ShowcaseSectionPro
     };
   }, [displayImages.length]);
 
+  if (displayImages.length === 0) return null;
+
   return (
     <section className="py-16">
       <div className="flex items-center justify-between gap-4">
         <h2 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
-          Sản phẩm đã in
+          {s.title}
         </h2>
         <div className="hidden items-center gap-2 sm:flex">
           <button
             type="button"
             onClick={() => scrollByPage("left")}
             className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            aria-label="Cuộn sang trái"
+            aria-label={s.scrollLeft}
           >
             ←
           </button>
@@ -77,7 +77,7 @@ export function ShowcaseSection({ images = SHOWCASE_IMAGES }: ShowcaseSectionPro
             type="button"
             onClick={() => scrollByPage("right")}
             className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
-            aria-label="Cuộn sang phải"
+            aria-label={s.scrollRight}
           >
             →
           </button>
@@ -95,7 +95,7 @@ export function ShowcaseSection({ images = SHOWCASE_IMAGES }: ShowcaseSectionPro
               type="button"
               onClick={() => setPreviewImage(image)}
               className="group w-[82%] shrink-0 snap-start overflow-hidden rounded-xl border border-zinc-200 bg-white text-left sm:w-[48%] lg:w-[calc((100%-2rem)/3)] dark:border-zinc-800"
-              aria-label={`Xem ảnh lớn: ${image.alt}`}
+              aria-label={s.enlargeTemplate.replace("{alt}", image.alt)}
             >
               <div className="h-64 w-full bg-white">
                 <Image
@@ -116,14 +116,14 @@ export function ShowcaseSection({ images = SHOWCASE_IMAGES }: ShowcaseSectionPro
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
           role="dialog"
           aria-modal="true"
-          aria-label="Xem ảnh sản phẩm đã in"
+          aria-label={s.dialogLabel}
         >
           <button
             type="button"
             className="absolute right-4 top-4 rounded-lg bg-white/90 px-3 py-1.5 text-sm font-semibold text-zinc-900 hover:bg-white"
             onClick={() => setPreviewImage(null)}
           >
-            Đóng
+            {s.close}
           </button>
           <img
             src={previewImage.src}
