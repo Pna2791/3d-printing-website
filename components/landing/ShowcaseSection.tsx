@@ -1,25 +1,68 @@
 "use client";
 
 import Image from "next/image";
+import { ImageOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import type { ShowcaseGalleryItem } from "@/lib/gallery/showcase-types";
+import { isRemoteImageSrc, normalizeGalleryImageUrl } from "@/lib/gallery/image-display";
 import type { AppLocale } from "@/lib/i18n-dictionary";
 import { getDictionary } from "@/lib/i18n-dictionary";
 
-type ShowcaseItem = {
-  src: string;
-  alt: string;
-};
+function ShowcaseTileImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [broken, setBroken] = useState(false);
+  const normalized = normalizeGalleryImageUrl(src);
+  const remote = isRemoteImageSrc(normalized);
+  const mergedClassName = `bg-white ${className ?? ""}`.trim();
+
+  if (broken) {
+    return (
+      <div
+        className={`flex flex-col items-center justify-center gap-2 bg-zinc-100 text-center text-xs text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 ${className}`}
+      >
+        <ImageOff className="size-10 opacity-60" aria-hidden />
+        <span>Không tải được ảnh</span>
+      </div>
+    );
+  }
+
+  // Remote URLs (Supabase Storage): native <img> avoids Next Image optimizer / remotePatterns mismatches.
+  if (remote) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- intentional for arbitrary public Storage URLs
+      <img
+        src={normalized}
+        alt={alt}
+        className={mergedClassName}
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => setBroken(true)}
+      />
+    );
+  }
+
+  return (
+    <Image
+      src={normalized}
+      alt={alt}
+      width={1200}
+      height={900}
+      className={mergedClassName}
+      onError={() => setBroken(true)}
+    />
+  );
+}
 
 type ShowcaseSectionProps = {
   locale: AppLocale;
-  images?: ShowcaseItem[];
+  images?: ShowcaseGalleryItem[];
 };
 
 export function ShowcaseSection({ locale, images = [] }: ShowcaseSectionProps) {
   const s = getDictionary(locale).home.showcase;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [previewImage, setPreviewImage] = useState<ShowcaseItem | null>(null);
+  const [previewImage, setPreviewImage] = useState<ShowcaseGalleryItem | null>(null);
   const displayImages = images;
 
   const scrollByPage = (direction: "left" | "right") => {
@@ -91,18 +134,16 @@ export function ShowcaseSection({ locale, images = [] }: ShowcaseSectionProps) {
         >
           {displayImages.map((image) => (
             <button
-              key={image.src}
+              key={image.id ?? image.src}
               type="button"
               onClick={() => setPreviewImage(image)}
               className="group w-[82%] shrink-0 snap-start overflow-hidden rounded-xl border border-zinc-200 bg-white text-left sm:w-[48%] lg:w-[calc((100%-2rem)/3)] dark:border-zinc-800"
               aria-label={s.enlargeTemplate.replace("{alt}", image.alt)}
             >
-              <div className="h-64 w-full bg-white">
-                <Image
+              <div className="relative h-64 w-full bg-white">
+                <ShowcaseTileImage
                   src={image.src}
                   alt={image.alt}
-                  width={1200}
-                  height={900}
                   className="h-full w-full object-contain transition duration-300 group-hover:scale-105"
                 />
               </div>
@@ -118,18 +159,33 @@ export function ShowcaseSection({ locale, images = [] }: ShowcaseSectionProps) {
           aria-modal="true"
           aria-label={s.dialogLabel}
         >
-          <button
-            type="button"
-            className="absolute right-4 top-4 rounded-lg bg-white/90 px-3 py-1.5 text-sm font-semibold text-zinc-900 hover:bg-white"
-            onClick={() => setPreviewImage(null)}
-          >
-            {s.close}
-          </button>
-          <img
-            src={previewImage.src}
-            alt={previewImage.alt}
-            className="h-auto max-h-[92vh] w-auto max-w-[96vw] rounded-lg bg-white p-2"
-          />
+          <div className="relative max-h-[92vh] max-w-[96vw] overflow-auto rounded-lg bg-white p-4 text-zinc-900 shadow-xl dark:bg-zinc-900 dark:text-zinc-50">
+            <button
+              type="button"
+              className="absolute right-2 top-2 rounded-lg bg-white/90 px-3 py-1.5 text-sm font-semibold text-zinc-900 shadow-sm ring-1 ring-zinc-200 hover:bg-white dark:bg-zinc-950/80 dark:text-zinc-50 dark:ring-zinc-800 dark:hover:bg-zinc-950"
+              onClick={() => setPreviewImage(null)}
+            >
+              {s.close}
+            </button>
+            {previewImage.title ? (
+              <h3 className="text-lg font-semibold leading-snug">{previewImage.title}</h3>
+            ) : null}
+            {previewImage.category ? (
+              <p className="mt-1 text-xs font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                {previewImage.category}
+              </p>
+            ) : null}
+            {previewImage.description ? (
+              <p className="mt-3 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">{previewImage.description}</p>
+            ) : null}
+            {/* eslint-disable-next-line @next/next/no-img-element -- lightbox; Supabase public URLs */}
+            <img
+              src={normalizeGalleryImageUrl(previewImage.src)}
+              alt={previewImage.alt}
+              className="mt-4 h-auto max-h-[70vh] w-full max-w-full rounded-md object-contain"
+              referrerPolicy="no-referrer"
+            />
+          </div>
         </div>
       ) : null}
     </section>

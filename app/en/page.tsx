@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 
 import { HomeJsonLd } from "@/components/seo/HomeJsonLd";
 import { HomeLandingClient } from "@/components/landing/HomeLandingClient";
-import { getPrinterImagesForLocale, getShowcaseImagesForLocale } from "@/lib/home-static-assets";
+import { getPrintedGalleryForLocale } from "@/lib/gallery/printed-products";
+import { getPrinterImagesForLocale } from "@/lib/home-static-assets";
 import { getSiteUrl, SITE_BRAND } from "@/lib/seo";
 import { getMaterialsWithPricing } from "@/services/materialService";
 import { getPrinters } from "@/services/printerService";
@@ -44,7 +45,7 @@ export default async function EnHomePage() {
     getWorkshopInfo(),
     getMaterialsWithPricing(),
     getPrinters(),
-    getShowcaseImagesForLocale("en"),
+    getPrintedGalleryForLocale("en"),
     getPrinterImagesForLocale("en"),
   ]);
 

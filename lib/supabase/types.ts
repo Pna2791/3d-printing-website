@@ -122,6 +122,36 @@ export type Database = {
         };
         Relationships: [];
       };
+      printed_products: {
+        Row: {
+          id: string;
+          created_at: string;
+          title: string;
+          description: string;
+          image_url: string;
+          category: string;
+          storage_path: string;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          title: string;
+          description?: string;
+          image_url: string;
+          category?: string;
+          storage_path: string;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          title?: string;
+          description?: string;
+          image_url?: string;
+          category?: string;
+          storage_path?: string;
+        };
+        Relationships: [];
+      };
       page_views: {
         Row: {
           id: string;

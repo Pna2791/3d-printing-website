@@ -19,6 +19,7 @@ import { PricingModal } from "@/components/pricing/PricingModal";
 import type { AppLocale } from "@/lib/i18n-dictionary";
 import { getDictionary } from "@/lib/i18n-dictionary";
 import { FEATURES, OFFLINE_ORDER_CONTACT } from "@/lib/config";
+import type { ShowcaseGalleryItem } from "@/lib/gallery/showcase-types";
 import type { MaterialWithPricing, PrinterRow, WorkshopInfoRow } from "@/lib/supabase/types";
 
 type HomeLandingClientProps = {
@@ -29,7 +30,7 @@ type HomeLandingClientProps = {
   materialsError: string | null;
   printers: PrinterRow[];
   printersError: string | null;
-  showcaseImages: { src: string; alt: string }[];
+  showcaseImages: ShowcaseGalleryItem[];
   printerImages: { src: string; alt: string }[];
 };
 
