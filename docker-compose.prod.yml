@@ -1,0 +1,109 @@
+# Production deployment — used ONLY on the production server (copied there by CI).
+#
+# Rules enforced by this file + scripts/deploy.sh:
+#   - Zero build on production: services reference prebuilt GHCR images, no `build:` sections.
+#   - Images are pinned by tag: WEB_IMAGE / THUMB_IMAGE are exported by scripts/deploy.sh
+#     as ghcr.io/<owner>/3d-printing-website-{web,thumb}:sha-<commit> (never `latest`).
+#   - `.env` in the deploy directory provides runtime configuration (Compose reads it
+#     automatically). CI never creates or overwrites it.
+#   - Named volumes (postgres_data) are preserved: deploys only `pull` + `up -d`.
+
+services:
+  web:
+    image: ${WEB_IMAGE:?WEB_IMAGE must be set, e.g. ghcr.io/<owner>/3d-printing-website-web:sha-abc123}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-}
+      # NEXT_PUBLIC_* must match the build args baked into the image (CI passes the same
+      # GitHub Secrets as Docker build args). Needed again here for SSR at runtime.
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      SLICER_API_BASE_URL: ${SLICER_API_BASE_URL:-http://host.docker.internal:8888}
+      STL2THUMB_MODE: ${STL2THUMB_MODE:-auto}
+      STL2THUMB_SERVICE_URL: ${STL2THUMB_SERVICE_URL:-http://thumb-service:8887}
+      STL2THUMB_MATERIAL_PRESET: ${STL2THUMB_MATERIAL_PRESET:-emerald}
+      STL2THUMB_THUMB_SIZE: ${STL2THUMB_THUMB_SIZE:-768}
+      STL2THUMB_TIMEOUT_MS: ${STL2THUMB_TIMEOUT_MS:-120000}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # node:20-bookworm-slim has no curl/wget; Node 20's global fetch works for the probe.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - app
+    restart: unless-stopped
+    depends_on:
+      thumb-service:
+        condition: service_healthy
+
+  thumb-service:
+    image: ${THUMB_IMAGE:?THUMB_IMAGE must be set, e.g. ghcr.io/<owner>/3d-printing-website-thumb:sha-abc123}
+    # Pin port here so a stale image (old Dockerfile CMD on 8001) still matches the healthcheck / publish mapping.
+    command:
+      [
+        "/opt/thumb/venv/bin/python",
+        "-m",
+        "uvicorn",
+        "api:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8887",
+      ]
+    ports:
+      - "${THUMB_SERVICE_PORT:-8887}:8887"
+    environment:
+      MESA_GL_VERSION_OVERRIDE: ${MESA_GL_VERSION_OVERRIDE:-2.1}
+      STL2THUMB_MAX_UPLOAD_MB: ${STL2THUMB_MAX_UPLOAD_MB:-52}
+      STL2THUMB_RENDER_TIMEOUT_SEC: ${STL2THUMB_RENDER_TIMEOUT_SEC:-120}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8887/health >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    networks:
+      - app
+    restart: unless-stopped
+
+  # Optional local Postgres (production normally uses Supabase cloud).
+  # Enable by setting COMPOSE_PROFILES=local-db in the server's .env.
+  # Its data lives in the named volume `postgres_data`, which deploys never touch.
+  db:
+    image: postgres:16-alpine
+    profiles:
+      - local-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app
+    restart: unless-stopped
+
+networks:
+  app:
+    driver: bridge
+
+volumes:
+  postgres_data:
