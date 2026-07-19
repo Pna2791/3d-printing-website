@@ -6,13 +6,13 @@ import { AboutSection } from "@/components/landing/AboutSection";
 import { EnclosedPrintingSection } from "@/components/landing/EnclosedPrintingSection";
 import { ContactSection } from "@/components/landing/ContactSection";
 import { GrandOpeningBar } from "@/components/landing/GrandOpeningBar";
-import { GrandOpeningLandingConfetti } from "@/components/landing/GrandOpeningEffects";
 import { HeroSection } from "@/components/landing/HeroSection";
 import { PricingPreview } from "@/components/landing/PricingPreview";
 import { PrinterStatusLive } from "@/components/landing/PrinterStatusLive";
 import { QueryError } from "@/components/landing/QueryError";
 import { GlobalOrdersSection } from "@/components/landing/GlobalOrdersSection";
 import { ShowcaseSection } from "@/components/landing/ShowcaseSection";
+import { TextSlicerSection } from "@/components/landing/TextSlicerSection";
 import { WorkshopLocationSection } from "@/components/landing/WorkshopLocationSection";
 import { CreateOrderForm } from "@/components/orders/CreateOrderForm";
 import { PricingModal } from "@/components/pricing/PricingModal";
@@ -56,9 +56,12 @@ export function HomeLandingClient({
   return (
     <main className="min-h-screen bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
       <GrandOpeningBar locale={locale} />
-      <GrandOpeningLandingConfetti />
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <HeroSection locale={locale} onOpenPricing={() => setIsPricingOpen(true)} />
+
+        <div className="py-8">
+          <TextSlicerSection locale={locale} />
+        </div>
 
         <div className="py-8">
           <EnclosedPrintingSection locale={locale} />

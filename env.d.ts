@@ -11,5 +11,7 @@ declare namespace NodeJS {
     SUPABASE_PUBLIC_URL_AT_BUILD?: string;
     /** Base URL of the local Na 3D Slicer API (e.g. http://127.0.0.1:8000). Server-only. */
     SLICER_API_BASE_URL?: string;
+    /** Public URL of the text-slicer quotation tool (landing-page CTA). Inlined at build time. */
+    NEXT_PUBLIC_TEXT_SLICER_URL?: string;
   }
 }
