@@ -119,12 +119,13 @@ jobs:
 
       - name: Deploy (pull images, restart, health check, rollback on failure)
         env:
-          # Optional repository Variable; defaults to ~/deploy/3d-printing-website.
+          # Optional repository Variable; defaults to the production deploy directory
+          # on the MacBook Air (/Users/creator/na-3d-prod/3d-printing-website).
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
         # macOS ships bash 3.2 — avoid bash-4 features like ${VAR,,} here.
         run: |
           set -euo pipefail
-          DEPLOY_PATH="${DEPLOY_PATH:-$HOME/deploy/3d-printing-website}"
+          DEPLOY_PATH="${DEPLOY_PATH:-/Users/creator/na-3d-prod/3d-printing-website}"
           REPO_LC="$(printf '%s' "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')"
 
           mkdir -p "$DEPLOY_PATH"
