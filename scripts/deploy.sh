@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Production deploy script — runs ON THE PRODUCTION SERVER (invoked over SSH by CI).
+# Production deploy script — runs ON THE PRODUCTION MACHINE, invoked by the
+# GitHub self-hosted runner installed there (works on macOS bash 3.2 and Linux).
 #
 # Usage (from the deploy directory, which must contain .env and docker-compose.prod.yml):
 #   WEB_IMAGE_REPO=ghcr.io/<owner>/3d-printing-website-web \
