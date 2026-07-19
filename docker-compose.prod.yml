@@ -19,6 +19,11 @@ services:
       # GitHub Secrets as Docker build args). Needed again here for SSR at runtime.
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      # Server-only secrets — live exclusively in the production .env (never in GitHub).
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      ADMIN_ANALYTICS_SECRET: ${ADMIN_ANALYTICS_SECRET:-}
+      ANALYTICS_IP_SALT: ${ANALYTICS_IP_SALT:-}
+      ANALYTICS_ALLOWED_HOSTS: ${ANALYTICS_ALLOWED_HOSTS:-}
       SLICER_API_BASE_URL: ${SLICER_API_BASE_URL:-http://host.docker.internal:8888}
       STL2THUMB_MODE: ${STL2THUMB_MODE:-auto}
       STL2THUMB_SERVICE_URL: ${STL2THUMB_SERVICE_URL:-http://thumb-service:8887}
