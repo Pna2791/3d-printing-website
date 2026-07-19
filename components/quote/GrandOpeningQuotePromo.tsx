@@ -16,8 +16,8 @@ export function GrandOpeningQuotePromo({ locale = "vi" }: GrandOpeningQuotePromo
   const petgStudent = PRICING_RULES.PETG.studentVndPerGram;
   const msg =
     locale === "en"
-      ? `Grand-opening pricing applies! PETG from ${petgStudent} ₫/g for students`
-      : `Bạn đang được áp dụng giá khai trương! (PETG chỉ ${petgStudent}đ/g cho sinh viên)`;
+      ? `Student promotional pricing applies! PETG from ${petgStudent} ₫/g for students`
+      : `Bạn đang được áp dụng giá ưu đãi sinh viên! (PETG chỉ ${petgStudent}đ/g)`;
 
   return (
     <motion.div

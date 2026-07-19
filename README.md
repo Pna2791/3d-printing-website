@@ -101,6 +101,7 @@ Copy `.env.example` to `.env`. Variables marked **(public)** are inlined into th
 |---|---|---|
 | `NEXT_PUBLIC_QUOTE_CANONICAL_URL` | public | Override canonical URL for the quote page |
 | `NEXT_PUBLIC_QUOTE_CHECKOUT_ENABLED` | public | Set `false` to disable quote checkout UI and API |
+| `NEXT_PUBLIC_TEXT_SLICER_URL` | public | Text Slicer tool URL — see [Text Slicer URL](#text-slicer-url) |
 | `DATABASE_URL` | server | Direct Postgres URL for `psql` / migrations (never client-side) |
 | `STL2THUMB_MODE` | server | `auto` \| `http` \| `off` — thumbnail generation behaviour |
 | `STL2THUMB_MATERIAL_PRESET` | server | `emerald` \| `blue` \| `grey` |
@@ -113,6 +114,38 @@ Copy `.env.example` to `.env`. Variables marked **(public)** are inlined into th
 | `POSTGRES_*` | Compose | Credentials for optional `local-db` profile |
 
 See `.env.example` for commented examples and Docker networking notes.
+
+### Text Slicer URL
+
+`NEXT_PUBLIC_TEXT_SLICER_URL` is the public URL of the **Text Slicer** quotation tool
+for the 3D Text Printing (channel letter) service. The landing page's
+**"Open Text Slicer"** button navigates to it. The value is read in one place —
+`config/urls.ts` (`TEXT_SLICER_URL`) — never directly from `process.env` in components.
+
+No hostname is hardcoded in the source. Resolution order:
+
+1. `NEXT_PUBLIC_TEXT_SLICER_URL`, when set, always wins.
+2. In **development** with the variable unset, the URL is auto-detected in the
+   browser as `<current hostname>:8000` — so `http://localhost:3000` links to
+   `http://localhost:8000`, and a LAN visitor on `http://192.168.1.7:3000` links
+   to `http://192.168.1.7:8000`. No `.env` entry needed.
+3. In **production** with the variable unset, a warning is logged and the button
+   is rendered disabled; the site does not crash.
+
+Development (only needed to override auto-detection):
+
+```bash
+NEXT_PUBLIC_TEXT_SLICER_URL=http://192.168.1.7:8000
+```
+
+Production example:
+
+```bash
+NEXT_PUBLIC_TEXT_SLICER_URL=https://text.na-3d.shop
+```
+
+As with every `NEXT_PUBLIC_*` variable, the value is inlined into the client bundle at
+`next build` time — rebuild after changing it (`docker compose build --no-cache web`).
 
 ## Feature Flags
 

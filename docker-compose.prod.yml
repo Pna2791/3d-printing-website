@@ -19,6 +19,7 @@ services:
       # GitHub Secrets as Docker build args). Needed again here for SSR at runtime.
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      NEXT_PUBLIC_TEXT_SLICER_URL: ${NEXT_PUBLIC_TEXT_SLICER_URL:-}
       # Server-only secrets — live exclusively in the production .env (never in GitHub).
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
       ADMIN_ANALYTICS_SECRET: ${ADMIN_ANALYTICS_SECRET:-}

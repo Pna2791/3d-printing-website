@@ -5,9 +5,7 @@ import { motion } from "framer-motion";
 
 import type { AppLocale } from "@/lib/i18n-dictionary";
 import { getDictionary } from "@/lib/i18n-dictionary";
-import { fireGrandOpeningConfetti } from "@/lib/confetti";
-import { isGrandOpeningPromoActive } from "@/lib/grandOpening";
-import { PRICING_RULES } from "@/lib/pricing";
+import { isChannelLetterPromoActive } from "@/lib/channelLetterPromo";
 import { QUOTE_EN_PATH, QUOTE_VI_SEO_PATH } from "@/lib/quote-paths";
 
 type HeroSectionProps = {
@@ -18,8 +16,7 @@ type HeroSectionProps = {
 export function HeroSection({ locale, onOpenPricing }: HeroSectionProps) {
   const h = getDictionary(locale).home.hero;
   const quoteHref = locale === "en" ? QUOTE_EN_PATH : QUOTE_VI_SEO_PATH;
-  const promo = isGrandOpeningPromoActive();
-  const petgStudent = PRICING_RULES.PETG.studentVndPerGram;
+  const promo = isChannelLetterPromoActive();
 
   return (
     <section className="grid gap-10 py-16 lg:grid-cols-2 lg:items-center">
@@ -47,10 +44,11 @@ export function HeroSection({ locale, onOpenPricing }: HeroSectionProps) {
         ) : null}
 
         <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-5 dark:border-emerald-900/50 dark:bg-emerald-900/20">
-          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">{h.openingCardTitle}</p>
-          <p className="mt-2 text-sm text-emerald-800 dark:text-emerald-200">{h.openingCardFrom}</p>
+          <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">{h.promoCardTitle}</p>
+          <p className="mt-1 text-xs font-medium text-emerald-700/90 dark:text-emerald-300/90">{h.promoCardPeriod}</p>
+          <p className="mt-2 text-sm text-emerald-800 dark:text-emerald-200">{h.promoCardContent}</p>
           <motion.p
-            className="mt-3 inline-block rounded-xl px-4 py-2.5 text-xl font-extrabold leading-tight tracking-tight text-emerald-950 sm:text-2xl md:text-3xl dark:text-emerald-50"
+            className="mt-3 inline-flex flex-wrap items-baseline gap-x-3 gap-y-1 rounded-xl px-4 py-2.5 leading-tight tracking-tight"
             animate={{
               scale: [1, 1.03, 1],
               boxShadow: [
@@ -61,16 +59,18 @@ export function HeroSection({ locale, onOpenPricing }: HeroSectionProps) {
             }}
             transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
           >
-            {petgStudent}
-            {locale === "en" ? " " : ""}
-            {h.petgStudentSuffix}
+            <span className="text-base font-semibold text-emerald-800/70 line-through dark:text-emerald-200/60 sm:text-lg">
+              {h.regularPrice}
+            </span>
+            <span className="text-xl font-extrabold text-emerald-950 sm:text-2xl md:text-3xl dark:text-emerald-50">
+              {h.promoPrice}
+            </span>
           </motion.p>
         </div>
 
         <div className="mt-8 flex flex-wrap gap-3">
           <a
             href={quoteHref}
-            onClick={() => fireGrandOpeningConfetti()}
             className="rounded-xl bg-zinc-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
           >
             {h.ctaQuote}
