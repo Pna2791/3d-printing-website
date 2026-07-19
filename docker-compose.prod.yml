@@ -47,6 +47,13 @@ services:
       start_period: 20s
     networks:
       - app
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.website.rule=Host(`na-3d.shop`)"
+      - "traefik.http.routers.website.entrypoints=web"
+      - "traefik.http.routers.website.middlewares=secure-headers@file,compress@file"
+      - "traefik.http.services.website.loadbalancer.server.port=3000"
     restart: unless-stopped
     depends_on:
       thumb-service:
@@ -109,6 +116,8 @@ services:
 networks:
   app:
     driver: bridge
+  proxy:
+    external: true
 
 volumes:
   postgres_data:
