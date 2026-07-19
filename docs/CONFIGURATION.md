@@ -13,23 +13,22 @@ Public URL of the Text Slicer quotation tool for the "Dịch vụ in chân chữ
 CTA button navigates to this URL, so customers can upload a file and get an automatic
 quote.
 
-The value is read in exactly one place — `config/urls.ts` (`TEXT_SLICER_URL` /
-`resolveTextSlicerUrl()`) — and components import from there instead of touching
+The value is read in exactly one place — `config/urls.ts` (`resolveTextSlicerUrl()` /
+`TEXT_SLICER_URL`) — and components import from there instead of touching
 `process.env`. Because it is a `NEXT_PUBLIC_*` variable, it is **inlined into the
 client bundle at `next build` time**.
 
 Resolution order:
 
-1. `NEXT_PUBLIC_TEXT_SLICER_URL`, when set, always wins.
-2. In **development** with the variable unset, the URL is auto-detected in the
-   browser as `<current hostname>:8000` (same machine as the dev server), so no
-   IP is hardcoded anywhere.
-3. In **production** with the variable unset, a warning is logged and the CTA
-   button is rendered disabled (no crash).
+1. `NEXT_PUBLIC_TEXT_SLICER_URL`, when set and non-empty, always wins.
+2. **Development** (env unset): auto-detects the browser hostname on port 8000.
+3. **Production** (env unset): falls back to `https://text.na-3d.shop`.
+
+The CTA is **never** disabled for a missing env var.
 
 ### Development example
 
-Leave unset for auto-detection, or override explicitly:
+Leave unset for hostname:8000 auto-detect, or override:
 
 ```bash
 NEXT_PUBLIC_TEXT_SLICER_URL=http://192.168.1.7:8000

@@ -122,17 +122,16 @@ for the 3D Text Printing (channel letter) service. The landing page's
 **"Open Text Slicer"** button navigates to it. The value is read in one place —
 `config/urls.ts` (`TEXT_SLICER_URL`) — never directly from `process.env` in components.
 
-No hostname is hardcoded in the source. Resolution order:
+No hostname must be set for the button to work. Resolution order:
 
-1. `NEXT_PUBLIC_TEXT_SLICER_URL`, when set, always wins.
-2. In **development** with the variable unset, the URL is auto-detected in the
-   browser as `<current hostname>:8000` — so `http://localhost:3000` links to
-   `http://localhost:8000`, and a LAN visitor on `http://192.168.1.7:3000` links
-   to `http://192.168.1.7:8000`. No `.env` entry needed.
-3. In **production** with the variable unset, a warning is logged and the button
-   is rendered disabled; the site does not crash.
+1. `NEXT_PUBLIC_TEXT_SLICER_URL`, when set and non-empty, always wins.
+2. **Development** (env unset): auto-detects the browser hostname on port 8000
+   (e.g. `http://localhost:3000` → `http://localhost:8000`).
+3. **Production** (env unset): falls back to `https://text.na-3d.shop`.
 
-Development (only needed to override auto-detection):
+The CTA is **never** disabled for a missing env var.
+
+Optional development override (skip auto-detect):
 
 ```bash
 NEXT_PUBLIC_TEXT_SLICER_URL=http://192.168.1.7:8000

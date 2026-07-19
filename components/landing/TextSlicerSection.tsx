@@ -15,9 +15,8 @@ export function TextSlicerSection({ locale }: TextSlicerSectionProps) {
   const t = getDictionary(locale).home.textSlicer;
   const promo = isChannelLetterPromoActive();
 
-  // The dev fallback needs `window.location`, which doesn't exist during SSR —
-  // resolve after mount to keep server and client markup identical.
-  const [slicerUrl, setSlicerUrl] = useState<string | undefined>(TEXT_SLICER_URL);
+  // Dev auto-detect needs `window.location` — resolve after mount so SSR/client match.
+  const [slicerUrl, setSlicerUrl] = useState(TEXT_SLICER_URL);
   useEffect(() => {
     setSlicerUrl(resolveTextSlicerUrl());
   }, []);
@@ -74,12 +73,10 @@ export function TextSlicerSection({ locale }: TextSlicerSectionProps) {
       </ul>
       <button
         type="button"
-        disabled={!slicerUrl}
         onClick={() => {
-          if (slicerUrl) window.location.href = slicerUrl;
+          window.location.href = slicerUrl;
         }}
-        title={slicerUrl ? undefined : t.ctaUnavailable}
-        className="mt-8 inline-flex rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-emerald-600 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400 dark:disabled:hover:bg-emerald-500"
+        className="mt-8 inline-flex rounded-xl bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 dark:bg-emerald-500 dark:text-emerald-950 dark:hover:bg-emerald-400"
       >
         {t.cta}
       </button>

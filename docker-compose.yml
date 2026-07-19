@@ -25,14 +25,14 @@ services:
       args:
         NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-        NEXT_PUBLIC_TEXT_SLICER_URL: ${NEXT_PUBLIC_TEXT_SLICER_URL:-http://localhost:8000}
+        NEXT_PUBLIC_TEXT_SLICER_URL: ${NEXT_PUBLIC_TEXT_SLICER_URL:-https://text.na-3d.shop}
     ports:
       - "${WEB_PORT:-3000}:3000"
     environment:
       DATABASE_URL: ${DATABASE_URL:-}
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
-      NEXT_PUBLIC_TEXT_SLICER_URL: ${NEXT_PUBLIC_TEXT_SLICER_URL:-http://localhost:8000}
+      NEXT_PUBLIC_TEXT_SLICER_URL: ${NEXT_PUBLIC_TEXT_SLICER_URL:-https://text.na-3d.shop}
       # Na `online_slicer`: host maps 8888→8000. From this container, reach the host via:
       # http://host.docker.internal:8888 (extra_hosts below). Override in `.env` if needed.
       SLICER_API_BASE_URL: ${SLICER_API_BASE_URL:-http://host.docker.internal:8888}
