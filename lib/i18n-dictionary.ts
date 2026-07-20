@@ -61,6 +61,37 @@ export const dictionary = {
         cta: "Báo giá ngay",
         ctaUnavailable: "Công cụ báo giá tạm thời chưa khả dụng",
       },
+      howItWorks: {
+        kicker: "Hướng dẫn",
+        title: "Xem cách hệ thống tạo chân chữ 3D chỉ trong vài phút",
+        subtitle:
+          "Xem cách hệ thống hoạt động trong thực tế: tải lên file DXF, tự động dựng mô hình 3D và xuất báo giá PDF trong vài giây.",
+        seoBody:
+          "Video ngắn dưới đây hướng dẫn toàn bộ quy trình in chân chữ cho biển quảng cáo và chữ nổi quảng cáo: từ một file DXF duy nhất, công cụ tự động dựng mô hình 3D, tính khối lượng in và xuất báo giá chân chữ dạng PDF — không cần phần mềm CAD, không phải chờ báo giá thủ công. Gia công chân chữ 3D nhanh chóng với giá minh bạch theo từng gram.",
+        stepsAria: "Quy trình 4 bước tạo đơn in chân chữ 3D",
+        steps: [
+          {
+            title: "Upload file DXF",
+            description: "Tải lên file DXF của bạn.",
+          },
+          {
+            title: "Tự động dựng mô hình 3D",
+            description: "Hệ thống tự động tạo mô hình chân chữ phù hợp.",
+          },
+          {
+            title: "Xuất báo giá PDF",
+            description: "Tính toán khối lượng và giá in tự động.",
+          },
+          {
+            title: "Đặt hàng",
+            description: "Gửi file và báo giá để tiến hành sản xuất.",
+          },
+        ],
+        videoTitle:
+          "Video hướng dẫn tạo đơn in chân chữ 3D từ file DXF bằng công cụ Text Slicer",
+        cta: "Báo giá ngay",
+        ctaAria: "Mở công cụ báo giá chân chữ 3D Text Slicer",
+      },
       globalOrders: {
         kicker: "Đối tác & khách quốc tế",
         title: "Vì sao chọn xưởng NA 3D SHOP cho đơn global?",
@@ -237,6 +268,37 @@ export const dictionary = {
         ],
         cta: "Get a quote now",
         ctaUnavailable: "Quotation tool temporarily unavailable",
+      },
+      howItWorks: {
+        kicker: "How it works",
+        title: "See how the system creates 3D channel letters in minutes",
+        subtitle:
+          "Watch it in action: upload a DXF file, auto-build the 3D model, and export a PDF quote in seconds.",
+        seoBody:
+          "The short video below walks through ordering 3D-printed channel letters for signage and raised advertising lettering: from a single DXF file, the tool auto-builds the 3D model, calculates print weight, and exports a PDF quotation — no CAD software and no waiting on a manual quote. Fast channel-letter fabrication with transparent per-gram pricing.",
+        stepsAria: "Four-step workflow to order 3D channel letters",
+        steps: [
+          {
+            title: "Upload your DXF file",
+            description: "Drop in the DXF file of your lettering.",
+          },
+          {
+            title: "Auto-build the 3D model",
+            description: "The system generates a matching channel-letter model.",
+          },
+          {
+            title: "Export a PDF quote",
+            description: "Weight and print cost are calculated automatically.",
+          },
+          {
+            title: "Place your order",
+            description: "Send the file and quote to start production.",
+          },
+        ],
+        videoTitle:
+          "Tutorial video: create a 3D channel-letter order from a DXF file with the Text Slicer tool",
+        cta: "Get a quote now",
+        ctaAria: "Open the Text Slicer channel-letter quoting tool",
       },
       globalOrders: {
         kicker: "Partners & overseas buyers",
