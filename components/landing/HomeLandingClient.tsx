@@ -7,6 +7,7 @@ import { EnclosedPrintingSection } from "@/components/landing/EnclosedPrintingSe
 import { ContactSection } from "@/components/landing/ContactSection";
 import { GrandOpeningBar } from "@/components/landing/GrandOpeningBar";
 import { HeroSection } from "@/components/landing/HeroSection";
+import { HowItWorksSection } from "@/components/landing/HowItWorksSection";
 import { PricingPreview } from "@/components/landing/PricingPreview";
 import { PrinterStatusLive } from "@/components/landing/PrinterStatusLive";
 import { QueryError } from "@/components/landing/QueryError";
@@ -61,6 +62,10 @@ export function HomeLandingClient({
 
         <div className="py-8">
           <TextSlicerSection locale={locale} />
+        </div>
+
+        <div className="pb-8">
+          <HowItWorksSection locale={locale} />
         </div>
 
         <div className="py-8">
